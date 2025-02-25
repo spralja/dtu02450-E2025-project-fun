@@ -11,7 +11,7 @@ from scipy.linalg import svd
 import pandas as pd
 
 # Importing the data
-filename = 'data/water_potability.csv'
+filename = 'data/glass+identification/glass.csv'
 
 data = pd.read_csv(filename)
 
@@ -34,8 +34,9 @@ y_no_nan = rawvalues[:,-1][~np.isnan(rawvalues).any(axis=1)]
 N, M = X_no_nan.shape
 print(f'X shape: {X_no_nan.shape}')
 
-C = 2
-classNames = ["Not potable", "Potable"]
+C = 7
+classNames = ['building_windows_float_processed', 'building_windows_non_float_processed', 'vehicle_windows_float_processed', 'vehicle_windows_non_float_processed', 'containers', 'tableware', 'headlamps']
+
 
 #%%
 print(f'X shape: {X_no_nan.shape}')
@@ -91,7 +92,7 @@ print(f'y shape: {y_no_nan.shape}')
 
 # Indices of the principal components to be plotted
 i = 0
-j = 2
+j = 1
 
 # Plot PCA of the data
 f = plt.figure()

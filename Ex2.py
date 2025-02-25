@@ -7,7 +7,7 @@ from scipy.linalg import svd
 
 #%%
 # Importing the data
-filename = 'data/water_potability.csv'
+filename = 'data/glass+identification/glass.csv'
 
 data = pd.read_csv(filename)
 #%%
@@ -70,7 +70,7 @@ plt.show()
 
 plt.figure()
 plt.boxplot(X_no_nan)
-plt.xticks(range(1, 10), attributeNames[:-1], rotation=45)
+plt.xticks(range(1, 11), attributeNames[:-1], rotation=45)
 plt.title("Boxplot of data without NaN values")
 plt.show()
 
@@ -83,7 +83,7 @@ X_hat = [(X[:, i][~np.isnan(X[:, i])] - median[i])/ std[i] for i in range(9)]
 
 plt.figure()
 plt.boxplot(X_hat)
-plt.xticks(range(1, 10), attributeNames[:-1], rotation=45)
+plt.xticks(range(1, 11), attributeNames[:-1], rotation=45)
 plt.title("Boxplot of standardized data")
 plt.show()
 
@@ -123,8 +123,8 @@ print(np.max(np.abs(Cor_mat[Cor_mat < 0.9])))
 #         Jac_mat[i,j] = Ext_Jac(X_hat[i], X[j])
 
 #%%
-C = 2
-classNames = ['Not potable', 'Potable']
+C = 7
+classNames = ['building_windows_float_processed', 'building_windows_non_float_processed', 'vehicle_windows_float_processed', 'vehicle_windows_non_float_processed', 'containers', 'tableware', 'headlamps']
 X_temp = X
 y_temp = y
 rand_choices = np.random.choice(len(y), int(len(y)/25), replace=False)
