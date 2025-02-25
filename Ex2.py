@@ -67,39 +67,24 @@ plt.show()
 # X = X_C
 
 #%%
-X_C
-X = X_no_nan
 
-k = 4
 plt.figure()
-# plt.boxplot(X_no_nan[:3])
-# plt.boxplot(X_no_nan[4:])
-# plt.xticks(attributeNames[k])
-# plt.title("Fisher's Iris data set - boxplot")
-plt.boxplot([X[:, i][~np.isnan(X[:, i])] for i in range(9)])
-
-
+plt.boxplot(X_no_nan)
+plt.xticks(range(1, 10), attributeNames[:-1], rotation=45)
+plt.title("Boxplot of data without NaN values")
 plt.show()
-
-X = X_C
 
 
 #%%
+
+# Looking at a standardized version of the data through boxplots
 
 X_hat = [(X[:, i][~np.isnan(X[:, i])] - median[i])/ std[i] for i in range(9)]
 
-
 plt.figure()
 plt.boxplot(X_hat)
-
-plt.show()
-
-
-#%%
-
-plt.figure()
-# plt.hist(np.log(X[:, 2]))
-plt.hist(X[:, 2])
+plt.xticks(range(1, 10), attributeNames[:-1], rotation=45)
+plt.title("Boxplot of standardized data")
 plt.show()
 
 

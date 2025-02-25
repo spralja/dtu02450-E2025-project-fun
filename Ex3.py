@@ -1,5 +1,5 @@
 #%%
-from Ex2 import *
+# from Ex2 import *
 
 
 #%%
@@ -7,8 +7,8 @@ from Ex2 import *
 
 import numpy as np
 import matplotlib.pyplot as plt
-import pandas as pd
 from scipy.linalg import svd
+import pandas as pd
 
 # Importing the data
 filename = 'data/water_potability.csv'
@@ -31,15 +31,25 @@ std = np.nanstd(X, axis=0)
 X_no_nan = rawvalues[:,:-1][~np.isnan(rawvalues).any(axis=1)]
 y_no_nan = rawvalues[:,-1][~np.isnan(rawvalues).any(axis=1)]
 
+N, M = X_no_nan.shape
+print(f'X shape: {X_no_nan.shape}')
+
 C = 2
 classNames = ["Not potable", "Potable"]
 
+#%%
+print(f'X shape: {X_no_nan.shape}')
+print((np.ones(N) * X_no_nan.mean(axis=0).shape))
 #%%
 
 # PCA
 
 # Subtract the mean from the data
-Y = X_no_nan - np.ones((len(X_no_nan[:,1]), 1)) * X_no_nan.mean(axis=0)
+Y = X_no_nan - np.ones([N, 1]) * X_no_nan.mean(axis=0)
+
+# Divide by standard deviation
+Y = Y / (np.ones([N, 1]) * np.std(Y, axis=0))
+
 
 # PCA by computing SVD of Y
 U, S, Vh = svd(Y, full_matrices=False)
@@ -71,21 +81,48 @@ plt.show()
 # does by inspecing the numpy documentation!
 Z = Y @ V
 
+
+print(f'Z shape: {Z.shape}')
+print(f'V shape: {V.shape}')
+print(f'Y shape: {Y.shape}')
+print(f'y shape: {y_no_nan.shape}')
+#%%
+
+
 # Indices of the principal components to be plotted
 i = 0
-j = 1
+j = 2
 
 # Plot PCA of the data
 f = plt.figure()
-plt.title("NanoNose data: PCA")
+plt.title("PCA")
 # Z = array(Z)
 for c in range(C):
     # select indices belonging to class c:
-    class_mask = y == c
+    class_mask = y_no_nan == c
     plt.plot(Z[class_mask, i], Z[class_mask, j], "o", alpha=0.5)
 plt.legend(classNames)
 plt.xlabel("PC{0}".format(i + 1))
 plt.ylabel("PC{0}".format(j + 1))
 
 # Output result to screen
+plt.show()
+
+
+
+#%%
+pcs = [0, 1, 2]
+legendStrs = ["PC" + str(e + 1) for e in pcs]
+bw = 0.2 #Bar width
+r = np.arange(1, M + 1)
+
+for i in pcs:
+    plt.bar(r + i * bw, V[:, i], width=bw)
+
+plt.xticks(r + bw, attributeNames[:-1],rotation=45)
+plt.xlabel("Attributes")
+plt.ylabel("Component coefficients")
+plt.legend(legendStrs)
+plt.grid()
+plt.title("PCA Component Coefficients")
 plt.show()
