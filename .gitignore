@@ -1,4 +1,5 @@
 venv/
+*.pyc
+
 local.ipynb
 path.txt
-dataset.zip/
