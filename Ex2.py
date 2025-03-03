@@ -26,6 +26,12 @@ else:
     print('No negative values in X')
 if X.all() >= 0:
     print('All values in X are positive')
+if 1 <= X[:,0].all() <= 4:
+    print('The RI values are reasonable')
+else:
+    print('The RI values are not reasonable')
+    print(max(X[:,0]))
+    print(min(X[:,0]))
 
 
 median = np.nanmedian(X, axis=0)
@@ -60,14 +66,18 @@ X_no_nan = X[is_not_nan.all(axis=1)]
 # X_C = X
 # X = X_no_nan
 plt.figure(figsize=(8, 7))
+plt.suptitle("Histograms of attributes", fontsize=18)
 u = np.floor(np.sqrt(M))
 v = np.ceil(float(M) / u)
 for i in range(M):
     plt.subplot(int(u), int(v), i + 1)
-    plt.hist(X[:, i], color=(0.2, 0.8 - i * 0.2*(4/M), 0.4))
-    plt.xlabel(attributeNames[i])
+    plt.hist(X[:, i], color=(0.2, 0.8 - i * 0.2*(4/M), 0.4),bins=20)
+    plt.xlabel(attributeNames[i], fontsize=16)
     plt.ylim(0, N / 2)
     plt.tight_layout()
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    
 
 plt.show()
 # X = X_C
@@ -104,7 +114,10 @@ for i in range(M):
 Cor_sign = np.sign(Cor_mat)
 # print(Cor_mat)
 plt.figure()
+plt.title("Correlation matrix", fontsize=18)
 plt.pcolormesh(np.abs(Cor_mat))
+plt.xticks(range(0,9), attributeNames[:-1], fontsize=14)
+plt.yticks(range(0,9), attributeNames[:-1], fontsize=14)
 plt.colorbar()
 plt.show()
 print(Cor_mat[1,4])
@@ -115,14 +128,10 @@ print(np.max(np.abs(Cor_mat[Cor_mat < 0.9])))
 #%%
 C = 7
 classNames = ['building_windows_float_processed', 'building_windows_non_float_processed', 'vehicle_windows_float_processed', 'vehicle_windows_non_float_processed', 'containers', 'tableware', 'headlamps']
-# X_temp = X
-# y_temp = y
-# rand_choices = np.random.choice(len(y), int(len(y)/25), replace=False)
-
-# X = X[rand_choices]
-# y = y[rand_choices]
 
 plt.figure(figsize=(12, 10))
+plt.suptitle("Scatter plots of attributes comparissons", fontsize=24)
+plt.tight_layout()
 for m1 in range(M):
     for m2 in range(M):
         plt.subplot(M, M, m1 * M + m2 + 1)
@@ -130,20 +139,16 @@ for m1 in range(M):
             class_mask = y == c
             plt.plot(np.array(X[class_mask, m2]), np.array(X[class_mask, m1]), ".")
             if m1 == M - 1:
-                plt.xlabel(attributeNames[m2])
+                plt.xlabel(attributeNames[m2], fontsize=16)
             else:
                 plt.xticks([])
             if m2 == 0:
-                plt.ylabel(attributeNames[m1])
+                plt.ylabel(attributeNames[m1], fontsize=16)
             else:
                 plt.yticks([])
                             
-plt.legend(classNames)
+# plt.legend(classNames)
 
 plt.show()
-
-# X = X_temp
-# y = y_temp
-
 
 

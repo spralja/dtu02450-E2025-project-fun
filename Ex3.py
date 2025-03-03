@@ -54,12 +54,14 @@ Y = X_no_nan - np.ones([N, 1]) * X_no_nan.mean(axis=0)
 # Divide by standard deviation
 Y = Y / (np.ones([N, 1]) * np.std(Y, axis=0))
 
+# Multiplying the RI by 1000
+# Y[:,0] = Y[:,0] * 100
+
 
 
 # PCA by computing SVD of Y
 U, S, Vh = svd(Y, full_matrices=False)
 V = Vh.T
-print(V.shape)
 
 rho = (S*S) / (S*S).sum()
 
@@ -83,8 +85,6 @@ plt.show()
 
 #%%
 # Project the centered data onto principal component space
-# Note: Make absolutely sure you understand what the @ symbol 
-# does by inspecing the numpy documentation!
 Z = Y @ V
 
 
@@ -98,6 +98,7 @@ print(f'y shape: {y_no_nan.shape}')
 # Indices of the principal components to be plotted
 i = 0
 j = 1
+
 
 # Plot PCA of the data
 f = plt.figure()
