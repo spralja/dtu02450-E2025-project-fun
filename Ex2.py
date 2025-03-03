@@ -12,14 +12,20 @@ filename = 'data/glass+identification/glass.csv'
 data = pd.read_csv(filename)
 #%%
 
-attributeNames = np.asarray(data.columns)
+attributeNames = np.asarray(data.columns)[1:]
 
 rawvalues = data.values
-X = rawvalues[:, :-1]
+X = rawvalues[:, 1:-1]
 y = rawvalues[:, -1]
 
 N, M = X.shape
 
+if X.any() < 0:
+    print('Negative values in X')
+else:
+    print('No negative values in X')
+if X.all() >= 0:
+    print('All values in X are positive')
 
 
 median = np.nanmedian(X, axis=0)
@@ -70,7 +76,7 @@ plt.show()
 
 plt.figure()
 plt.boxplot(X_no_nan)
-plt.xticks(range(1, 11), attributeNames[:-1], rotation=45)
+plt.xticks(range(1, 10), attributeNames[:-1], rotation=45)
 plt.title("Boxplot of data without NaN values")
 plt.show()
 
@@ -83,25 +89,13 @@ X_hat = [(X[:, i][~np.isnan(X[:, i])] - median[i])/ std[i] for i in range(9)]
 
 plt.figure()
 plt.boxplot(X_hat)
-plt.xticks(range(1, 11), attributeNames[:-1], rotation=45)
+plt.xticks(range(1, 10), attributeNames[:-1], rotation=45)
 plt.title("Boxplot of standardized data")
 plt.show()
 
 
 #%%
 # Similarities
-
-# Functions
-def cos_corr(x, y):
-    return np.dot(x, y) / (np.linalg.norm(x) * np.linalg.norm(y))
-
-def Ext_Jac(x,y):
-    return np.dot(x,y) / (np.linalg.norm(x)**2 + np.linalg.norm(y)**2 - np.dot(x,y))
-
-Cos_mat = np.empty((9,9))
-Jac_mat = np.empty((9,9))
-
-X_no_nan = X[~np.isnan(X).any(axis=1)]
 
 Cor_mat = np.empty((M,M))
 for i in range(M):
@@ -117,20 +111,16 @@ print(Cor_mat[1,4])
 print(Cor_mat[2,4])
 print(np.max(np.abs(Cor_mat[Cor_mat < 0.9])))
 
-# for i in range(9):
-#     for j in range(9):
-#         Cos_mat[i,j] = cos_corr(X_hat[i], X[j])
-#         Jac_mat[i,j] = Ext_Jac(X_hat[i], X[j])
 
 #%%
 C = 7
 classNames = ['building_windows_float_processed', 'building_windows_non_float_processed', 'vehicle_windows_float_processed', 'vehicle_windows_non_float_processed', 'containers', 'tableware', 'headlamps']
-X_temp = X
-y_temp = y
-rand_choices = np.random.choice(len(y), int(len(y)/25), replace=False)
+# X_temp = X
+# y_temp = y
+# rand_choices = np.random.choice(len(y), int(len(y)/25), replace=False)
 
-X = X[rand_choices]
-y = y[rand_choices]
+# X = X[rand_choices]
+# y = y[rand_choices]
 
 plt.figure(figsize=(12, 10))
 for m1 in range(M):
@@ -152,8 +142,8 @@ plt.legend(classNames)
 
 plt.show()
 
-X = X_temp
-y = y_temp
+# X = X_temp
+# y = y_temp
 
 
 

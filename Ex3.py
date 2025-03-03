@@ -15,20 +15,23 @@ filename = 'data/glass+identification/glass.csv'
 
 data = pd.read_csv(filename)
 
-attributeNames = np.asarray(data.columns)
+attributeNames = np.asarray(data.columns)[1:]
+print(attributeNames)
 
 rawvalues = data.values
-X = rawvalues[:, :-1]
+X = rawvalues[:, 1:-1]
 y = rawvalues[:, -1]
 
 N, M = X.shape
 
+print(rawvalues.shape)
+print(X.shape)
 
 
 median = np.nanmedian(X, axis=0)
 std = np.nanstd(X, axis=0)
 
-X_no_nan = rawvalues[:,:-1][~np.isnan(rawvalues).any(axis=1)]
+X_no_nan = rawvalues[:,1:-1][~np.isnan(rawvalues).any(axis=1)]
 y_no_nan = rawvalues[:,-1][~np.isnan(rawvalues).any(axis=1)]
 
 N, M = X_no_nan.shape
@@ -52,9 +55,11 @@ Y = X_no_nan - np.ones([N, 1]) * X_no_nan.mean(axis=0)
 Y = Y / (np.ones([N, 1]) * np.std(Y, axis=0))
 
 
+
 # PCA by computing SVD of Y
 U, S, Vh = svd(Y, full_matrices=False)
 V = Vh.T
+print(V.shape)
 
 rho = (S*S) / (S*S).sum()
 
@@ -110,11 +115,11 @@ plt.ylabel("PC{0}".format(j + 1))
 plt.show()
 
 
-
 #%%
 pcs = [0, 1, 2]
 legendStrs = ["PC" + str(e + 1) for e in pcs]
 bw = 0.2 #Bar width
+print(M)
 r = np.arange(1, M + 1)
 
 for i in pcs:
@@ -127,3 +132,7 @@ plt.legend(legendStrs)
 plt.grid()
 plt.title("PCA Component Coefficients")
 plt.show()
+
+
+#%%
+print(attributeNames)
