@@ -122,7 +122,7 @@ plt.colorbar()
 plt.show()
 print(Cor_mat[1,4])
 print(Cor_mat[2,4])
-print(np.max(np.abs(Cor_mat[Cor_mat < 0.9])))
+print(f'Highest correlation: {np.max(np.abs(Cor_mat[Cor_mat < 0.9]))}')
 
 
 #%%

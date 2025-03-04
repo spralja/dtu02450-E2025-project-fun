@@ -102,15 +102,15 @@ j = 1
 
 # Plot PCA of the data
 f = plt.figure()
-plt.title("PCA")
+plt.title("PCA", fontsize=18)
 # Z = array(Z)
 for c in range(C):
     # select indices belonging to class c:
     class_mask = y_no_nan == c
     plt.plot(Z[class_mask, i], Z[class_mask, j], "o", alpha=0.5)
 plt.legend(classNames)
-plt.xlabel("PC{0}".format(i + 1))
-plt.ylabel("PC{0}".format(j + 1))
+plt.xlabel("PC{0}".format(i + 1), fontsize=14)
+plt.ylabel("PC{0}".format(j + 1), fontsize=14)
 
 # Output result to screen
 plt.show()
