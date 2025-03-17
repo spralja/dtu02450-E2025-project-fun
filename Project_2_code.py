@@ -20,10 +20,12 @@ y = rawvalues[:, -1] # Last column (Type)
 
 N, M = X.shape
 
+print(f'Number of observations: {N}')
+
 C = 7
 classNames = ['building_windows_float_processed', 'building_windows_non_float_processed', 'vehicle_windows_float_processed', 'vehicle_windows_non_float_processed', 'containers', 'tableware', 'headlamps']
 
-#%%
+
 # Remove one random row from the data to be used later for testing
 random_row = np.random.randint(0, N)
 X = np.delete(X, random_row, axis=0)
@@ -34,7 +36,7 @@ test_row = rawvalues[random_row, 1:-1]
 test_label = rawvalues[random_row, -1]
 
 
-#%%
+
 # Try fitting a classification tree to the data
 
 
@@ -58,7 +60,7 @@ fname = "tree_ex513_" + criterion + ".png"
 # plt.show()
 
 
-#%%
+
 # Predict the label of the test row
 
 x = test_row.reshape(1, -1)
