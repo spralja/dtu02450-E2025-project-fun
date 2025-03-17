@@ -1,3 +1,7 @@
+'''Most of the code has been copied and modified from the course material.
+Copilot has been used mostly as a smart autocomplete tool, 
+but in some cases it was used to generate code snippets.'''
+
 #%%
 # Download the data from our Github repository
 import os
