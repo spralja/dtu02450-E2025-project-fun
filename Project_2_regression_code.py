@@ -50,7 +50,7 @@ print(Ca_vals.shape)
 model = lm.LinearRegression(fit_intercept=True)
 model = model.fit(Ca_vals, RI_vals)
 # Compute model output:
-y_est = model.predict(RI_vals)
+y_est = model.predict(Ca_vals)
 # Or equivalently:
 # y_est = model.intercept_ + X @ model.coef_
 
@@ -58,9 +58,9 @@ y_est = model.predict(RI_vals)
 # Plot original data and the model output
 f = plt.figure()
 
-plt.plot(RI_vals, Ca_vals, ".")
+plt.plot(Ca_vals, RI_vals, ".")
 # plt.plot(RI_vals, y_true, "-")
-plt.plot(RI_vals, y_est, "-")
+plt.plot(Ca_vals, y_est, "-")
 plt.xlabel("Ca_vals")
 plt.ylabel("RI_vals")
 plt.legend(["Training data", "Data generator", "Regression fit (model)"])
