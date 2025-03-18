@@ -51,16 +51,16 @@ else:
     print(min(X[:,0]))
 
 # Compute statistics
-median_values = np.nanmedian(X, axis=0)
-std_values = np.nanstd(X, axis=0, ddof=1)
-mean_values = np.nanmean(X, axis=0)
+median = np.nanmedian(X, axis=0)
+std = np.nanstd(X, axis=0, ddof=1)
+mean = np.nanmean(X, axis=0)
 range_values = np.nanmax(X, axis=0) - np.nanmin(X, axis=0)
 
 # Print calculated values
 print("Feature Names:\n", data.columns.values)
-print("\nMean of the features:\n", mean_values)
-print("\nMedian of the features:\n", median_values)
-print("\nStandard deviation of the features:\n", std_values)
+print("\nMean of the features:\n", mean)
+print("\nMedian of the features:\n", median)
+print("\nStandard deviation of the features:\n", std)
 print("\nRange of the features:\n", range_values)
 
 # Check for missing values (NaN)
@@ -111,6 +111,9 @@ plt.figure(figsize=(8, 7))
 plt.suptitle("Histograms of attributes", fontsize=18)
 u = np.floor(np.sqrt(M))
 v = np.ceil(float(M) / u)
+print(M)
+print(M + 2)
+print(range(M))
 for i in range(M):
     plt.subplot(int(u), int(v), i + 1)
     plt.hist(X[:, i], color=(0.2, 0.8 - i * 0.2*(4/M), 0.4),bins=20)
