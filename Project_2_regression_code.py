@@ -30,7 +30,7 @@ classNames = ['building_windows_float_processed', 'building_windows_non_float_pr
 mean = np.mean(X, 0)
 std = np.std(X, 0)
 
-
+# Making a standardized version of the data
 X_hat = (X - np.ones((N, M)) * mean) / (np.ones((N, M)) * std)
 
 #%% Fit a linear regression model to the data
