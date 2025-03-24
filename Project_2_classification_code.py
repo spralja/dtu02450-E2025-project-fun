@@ -80,12 +80,13 @@ print(classNames[int(test_label)-1])
 #%%
 
 class Classification_Model:
-    def __init__(self,X,y,classNames):
+    def __init__(self,X,y,classNames,lvl=0):
         self.X = X
         self.y = y
         self.N, self.M = X.shape
         self.classNames = classNames
         self.C = len(classNames)
+        self.lvl = lvl
         self.standardized = False
 
     def standardize_data(self):
@@ -126,17 +127,17 @@ M1.plot_tree()
 
 #%%
 
-def leaveOneOutTest(X,y,classNames):
+def leaveOneOutTest(X,y,classNames,min_samples_split=20.0):
     N, M = X.shape
     correct = 0
     for i in range(N):
         X_train = np.delete(X, i, axis=0)
         y_train = np.delete(y, i, axis=0)
-        print(X_train.shape)
         X_test = X[i, :]
         y_test = y[i]
         M = Classification_Model(X_train, y_train, classNames)
-        M.fit_classification_tree()
+        M.fit_classification_tree(min_samples_split=min_samples_split)
+        X_test = test_row.reshape(1, -1)
         x_class = M.predict(X_test)
         if x_class == y_test:
             correct += 1
@@ -145,5 +146,19 @@ def leaveOneOutTest(X,y,classNames):
 
 #%%
 
-accuracy = leaveOneOutTest(X,y,classNames)
-print(f"Accuracy: {accuracy}")
+# for min_samples_split in [2.0, 5.0, 10.0, 20.0, 50.0, 100.0]:
+for min_samples_split in [100.0, 50.0, 20.0, 10.0, 5.0, 2.0]:
+    M_temp = 0
+    M_temp = Classification_Model(X,y,classNames,lvl=min_samples_split)
+    M_temp.plot_tree()
+    accuracy = leaveOneOutTest(X,y,classNames,min_samples_split=min_samples_split)
+    print(f"Accuracy for min_samples_split = {min_samples_split}: {accuracy}")
+
+#%%
+def baseline_accuracy(y):
+    unique, counts = np.unique(y, return_counts=True)
+    print(unique, counts)
+    return max(counts)/sum(counts)
+
+baseline = baseline_accuracy(y)
+print(f"Baseline accuracy: {baseline}")
