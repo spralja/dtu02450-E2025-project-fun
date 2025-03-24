@@ -35,14 +35,9 @@ X_hat = (X - np.ones((N, M)) * mean) / (np.ones((N, M)) * std)
 
 #%% Fit a linear regression model to the data
 
-# print(attributeNames)
-
 RI_vals = np.array(X_hat[:, 0]).reshape(-1, 1)
 Ca_vals = np.array(X_hat[:, 6]).reshape(-1, 1)
-print(RI_vals.shape)
-print(Ca_vals.shape)
 
-#%%
 # Copied from exercise 5.2.2
 
 

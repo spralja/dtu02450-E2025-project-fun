@@ -125,3 +125,25 @@ M1.plot_tree()
 
 
 #%%
+
+def leaveOneOutTest(X,y,classNames):
+    N, M = X.shape
+    correct = 0
+    for i in range(N):
+        X_train = np.delete(X, i, axis=0)
+        y_train = np.delete(y, i, axis=0)
+        print(X_train.shape)
+        X_test = X[i, :]
+        y_test = y[i]
+        M = Classification_Model(X_train, y_train, classNames)
+        M.fit_classification_tree()
+        x_class = M.predict(X_test)
+        if x_class == y_test:
+            correct += 1
+    return correct/N
+
+
+#%%
+
+accuracy = leaveOneOutTest(X,y,classNames)
+print(f"Accuracy: {accuracy}")
