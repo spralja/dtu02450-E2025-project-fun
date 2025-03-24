@@ -75,3 +75,53 @@ print("\nClassification result:")
 print(classNames[int(x_class)-1])
 print("\nTrue label:")
 print(classNames[int(test_label)-1])
+
+
+#%%
+
+class Classification_Model:
+    def __init__(self,X,y,classNames):
+        self.X = X
+        self.y = y
+        self.N, self.M = X.shape
+        self.classNames = classNames
+        self.C = len(classNames)
+        self.standardized = False
+
+    def standardize_data(self):
+        self.mean = np.mean(self.X, 0)
+        self.std = np.std(self.X, 0)
+        self.X_hat = (self.X - np.ones((self.N, self.M)) * self.mean) / (np.ones((self.N, self.M)) * self.std)
+        self.standardized = True
+
+    def fit_classification_tree(self, criterion='gini', min_samples_split=5.0):
+        try:
+            if self.standardized:
+                self.dtc = tree.DecisionTreeClassifier(criterion=criterion, min_samples_split=min_samples_split / self.N)
+                self.dtc = self.dtc.fit(self.X_hat, self.y)
+            else:
+                self.dtc = tree.DecisionTreeClassifier(criterion=criterion, min_samples_split=min_samples_split / self.N)
+                self.dtc = self.dtc.fit(self.X, self.y)
+        except:
+            print("Error in fitting the classification tree")
+
+    def plot_tree(self):
+        fig = plt.figure(figsize=(4, 4), dpi=600)
+        _ = tree.plot_tree(dtc, filled=False, feature_names=attributeNames)
+        plt.show()
+
+    def predict(self, x):
+        if self.standardized:
+            x = (x - self.mean) / self.std
+        x_class = self.dtc.predict(x)[0]
+        return x_class
+
+
+#%%
+
+M1 = Classification_Model(X,y,classNames)
+M1.fit_classification_tree()
+M1.plot_tree()
+
+
+#%%
