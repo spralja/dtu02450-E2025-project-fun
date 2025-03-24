@@ -12,14 +12,26 @@ filename = 'data/glass+identification/glass.csv'
 data = pd.read_csv(filename)
 #%%
 
-attributeNames = np.asarray(data.columns)
+attributeNames = np.asarray(data.columns)[1:]
 
 rawvalues = data.values
-X = rawvalues[:, :-1]
+X = rawvalues[:, 1:-1]
 y = rawvalues[:, -1]
 
 N, M = X.shape
 
+if X.any() < 0:
+    print('Negative values in X')
+else:
+    print('No negative values in X')
+if X.all() >= 0:
+    print('All values in X are positive')
+if 1 <= X[:,0].all() <= 4:
+    print('The RI values are reasonable')
+else:
+    print('The RI values are not reasonable')
+    print(max(X[:,0]))
+    print(min(X[:,0]))
 
 
 median = np.nanmedian(X, axis=0)
@@ -54,14 +66,18 @@ X_no_nan = X[is_not_nan.all(axis=1)]
 # X_C = X
 # X = X_no_nan
 plt.figure(figsize=(8, 7))
+plt.suptitle("Histograms of attributes", fontsize=18)
 u = np.floor(np.sqrt(M))
 v = np.ceil(float(M) / u)
 for i in range(M):
     plt.subplot(int(u), int(v), i + 1)
-    plt.hist(X[:, i], color=(0.2, 0.8 - i * 0.2*(4/M), 0.4))
-    plt.xlabel(attributeNames[i])
+    plt.hist(X[:, i], color=(0.2, 0.8 - i * 0.2*(4/M), 0.4),bins=20)
+    plt.xlabel(attributeNames[i], fontsize=16)
     plt.ylim(0, N / 2)
     plt.tight_layout()
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    
 
 plt.show()
 # X = X_C
@@ -70,7 +86,7 @@ plt.show()
 
 plt.figure()
 plt.boxplot(X_no_nan)
-plt.xticks(range(1, 11), attributeNames[:-1], rotation=45)
+plt.xticks(range(1, 10), attributeNames[:-1], rotation=45)
 plt.title("Boxplot of data without NaN values")
 plt.show()
 
@@ -83,25 +99,13 @@ X_hat = [(X[:, i][~np.isnan(X[:, i])] - median[i])/ std[i] for i in range(9)]
 
 plt.figure()
 plt.boxplot(X_hat)
-plt.xticks(range(1, 11), attributeNames[:-1], rotation=45)
+plt.xticks(range(1, 10), attributeNames[:-1], rotation=45)
 plt.title("Boxplot of standardized data")
 plt.show()
 
 
 #%%
 # Similarities
-
-# Functions
-def cos_corr(x, y):
-    return np.dot(x, y) / (np.linalg.norm(x) * np.linalg.norm(y))
-
-def Ext_Jac(x,y):
-    return np.dot(x,y) / (np.linalg.norm(x)**2 + np.linalg.norm(y)**2 - np.dot(x,y))
-
-Cos_mat = np.empty((9,9))
-Jac_mat = np.empty((9,9))
-
-X_no_nan = X[~np.isnan(X).any(axis=1)]
 
 Cor_mat = np.empty((M,M))
 for i in range(M):
@@ -110,29 +114,24 @@ for i in range(M):
 Cor_sign = np.sign(Cor_mat)
 # print(Cor_mat)
 plt.figure()
+plt.title("Correlation matrix", fontsize=18)
 plt.pcolormesh(np.abs(Cor_mat))
+plt.xticks(range(0,9), attributeNames[:-1], fontsize=14)
+plt.yticks(range(0,9), attributeNames[:-1], fontsize=14)
 plt.colorbar()
 plt.show()
 print(Cor_mat[1,4])
 print(Cor_mat[2,4])
-print(np.max(np.abs(Cor_mat[Cor_mat < 0.9])))
+print(f'Highest correlation: {np.max(np.abs(Cor_mat[Cor_mat < 0.9]))}')
 
-# for i in range(9):
-#     for j in range(9):
-#         Cos_mat[i,j] = cos_corr(X_hat[i], X[j])
-#         Jac_mat[i,j] = Ext_Jac(X_hat[i], X[j])
 
 #%%
 C = 7
 classNames = ['building_windows_float_processed', 'building_windows_non_float_processed', 'vehicle_windows_float_processed', 'vehicle_windows_non_float_processed', 'containers', 'tableware', 'headlamps']
-X_temp = X
-y_temp = y
-rand_choices = np.random.choice(len(y), int(len(y)/25), replace=False)
-
-X = X[rand_choices]
-y = y[rand_choices]
 
 plt.figure(figsize=(12, 10))
+plt.suptitle("Scatter plots of attributes comparissons", fontsize=24)
+plt.tight_layout()
 for m1 in range(M):
     for m2 in range(M):
         plt.subplot(M, M, m1 * M + m2 + 1)
@@ -140,20 +139,16 @@ for m1 in range(M):
             class_mask = y == c
             plt.plot(np.array(X[class_mask, m2]), np.array(X[class_mask, m1]), ".")
             if m1 == M - 1:
-                plt.xlabel(attributeNames[m2])
+                plt.xlabel(attributeNames[m2], fontsize=16)
             else:
                 plt.xticks([])
             if m2 == 0:
-                plt.ylabel(attributeNames[m1])
+                plt.ylabel(attributeNames[m1], fontsize=16)
             else:
                 plt.yticks([])
                             
-plt.legend(classNames)
+# plt.legend(classNames)
 
 plt.show()
-
-X = X_temp
-y = y_temp
-
 
 
