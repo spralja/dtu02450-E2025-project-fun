@@ -10,6 +10,18 @@ from sklearn import model_selection
 
 from dtuimldmtools import rlr_validate
 
+#%%
+# ANN packages
+import importlib_resources
+import torch
+from scipy import stats
+from scipy.io import loadmat
+
+from dtuimldmtools import draw_neural_net, train_neural_net
+
+
+
+
 #%% Load the dataset
 # Importing the data
 filename = 'data/glass+identification/glass.csv'
@@ -32,8 +44,10 @@ y = rawvalues[:, 1] # RI column
 N, M = X.shape
 M = M + 1
 
-X = np.concatenate((np.ones((X.shape[0], 1)), X), 1)
+X_ANN = X # Save the original X for ANN later
 
+X = np.concatenate((np.ones((X.shape[0], 1)), X), 1)
+print(X.shape)
 
 print(f'Number of observations: {N}')
 
@@ -49,6 +63,8 @@ classNames = ['building_windows_float_processed', 'building_windows_non_float_pr
 # Crossvalidation (Pretty much copied from excercise 8.1.1)
 K = 5
 CV = model_selection.KFold(K, shuffle=True)
+
+
 
 #%%
 # Values of lambda
@@ -84,8 +100,7 @@ for train_index, test_index in CV.split(X, y):
         test_err_vs_lambda,
     ) = rlr_validate(X_train, y_train, lambdas, internal_cross_validation)
 
-    print(X_train.shape)
-    print(mu.shape)
+    # print(X_train.shape)
 
     # Standardize
     mu[k, :] = np.mean(X_train[:, 1:], 0)
@@ -109,6 +124,8 @@ for train_index, test_index in CV.split(X, y):
     lambdaI = opt_lambda * np.eye(M)
     lambdaI[0, 0] = 0  # Do no regularize the bias term
     w_rlr[:, k] = np.linalg.solve(XtX + lambdaI, Xty).squeeze()
+
+    print(w_rlr[:, k])
 
     # Compute mean squared error with regularization
     Error_train_rlr[k] = (
@@ -163,7 +180,137 @@ for train_index, test_index in CV.split(X, y):
 
 
 #%%
-# Display results
+print(M)
+#%%
+# ANN part (Shamelessly copied from excercise 8.2.6)
+
+# Parameters for neural network classifier
+n_hidden_units = 2  # number of hidden units
+n_replicates = 1  # number of networks trained in each k-fold
+max_iter = 10000
+
+# K-fold crossvalidation
+K = 5  # only three folds to speed up this example
+CV = model_selection.KFold(K, shuffle=True)
+
+# Setup figure for display of learning curves and error rates in fold
+summaries, summaries_axes = plt.subplots(1, 2, figsize=(10, 5))
+# Make a list for storing assigned color of learning curve for up to K=10
+color_list = [
+    "tab:orange",
+    "tab:green",
+    "tab:purple",
+    "tab:brown",
+    "tab:pink",
+    "tab:gray",
+    "tab:olive",
+    "tab:cyan",
+    "tab:red",
+    "tab:blue",
+]
+# Define the model
+model = lambda: torch.nn.Sequential(
+    torch.nn.Linear(M-1, n_hidden_units),  # M features to n_hidden_units
+    torch.nn.Tanh(),  # 1st transfer function,
+    torch.nn.Linear(n_hidden_units, 1),  # n_hidden_units to 1 output neuron
+    # no final tranfer function, i.e. "linear output"
+)
+loss_fn = torch.nn.MSELoss()  # notice how this is now a mean-squared-error loss
+
+print("Training model of type:\n\n{}\n".format(str(model())))
+errors = []  # make a list for storing generalizaition error in each loop
+for k, (train_index, test_index) in enumerate(CV.split(X_ANN, y)):
+    print("\nCrossvalidation fold: {0}/{1}".format(k + 1, K))
+
+    # Extract training and test set for current CV fold, convert to tensors
+    X_train = torch.Tensor(X_ANN[train_index, :])
+    y_train = torch.Tensor(y[train_index])
+    X_test = torch.Tensor(X_ANN[test_index, :])
+    y_test = torch.Tensor(y[test_index])
+
+    # Train the net on training data
+    net, final_loss, learning_curve = train_neural_net(
+        model,
+        loss_fn,
+        X=X_train,
+        y=y_train,
+        n_replicates=n_replicates,
+        max_iter=max_iter,
+    )
+
+    print("\n\tBest loss: {}\n".format(final_loss))
+
+    # Determine estimated class labels for test set
+    y_test_est = net(X_test)
+
+    # Determine errors and errors
+    se = (y_test_est.float() - y_test.float()) ** 2  # squared error
+    mse = (sum(se).type(torch.float) / len(y_test)).data.numpy()  # mean
+    errors.append(mse)  # store error rate for current CV fold
+
+    # Display the learning curve for the best net in the current fold
+    (h,) = summaries_axes[0].plot(learning_curve, color=color_list[k])
+    h.set_label("CV fold {0}".format(k + 1))
+    summaries_axes[0].set_xlabel("Iterations")
+    summaries_axes[0].set_xlim((0, max_iter))
+    summaries_axes[0].set_ylabel("Loss")
+    summaries_axes[0].set_title("Learning curves")
+
+
+#%%
+for i in range(len(errors)):
+    print(errors[i].shape)
+
+#%%
+# Display the MSE across folds
+summaries_axes[1].bar(
+    np.arange(1, K + 1), np.squeeze(np.asarray(errors)), color=color_list
+)
+summaries_axes[1].set_xlabel("Fold")
+summaries_axes[1].set_xticks(np.arange(1, K-1 + 1))
+summaries_axes[1].set_ylabel("MSE")
+summaries_axes[1].set_title("Test mean-squared-error")
+#%%
+print("Diagram of best neural net in last fold:")
+weights = [net[i].weight.data.numpy().T for i in [0, 2]]
+biases = [net[i].bias.data.numpy() for i in [0, 2]]
+tf = [str(net[i]) for i in [1, 2]]
+draw_neural_net(weights, biases, tf, attribute_names=attributeNames)
+#%%
+# Print the average classification error rate
+print(
+    "\nEstimated generalization error, RMSE: {0}".format(
+        round(np.sqrt(np.mean(errors)), 4)
+    )
+)
+
+# When dealing with regression outputs, a simple way of looking at the quality
+# of predictions visually is by plotting the estimated value as a function of
+# the true/known value - these values should all be along a straight line "y=x",
+# and if the points are above the line, the model overestimates, whereas if the
+# points are below the y=x line, then the model underestimates the value
+plt.figure(figsize=(10, 10))
+y_est = y_test_est.data.numpy()
+y_true = y_test.data.numpy()
+axis_range = [np.min([y_est, y_true]) - 1, np.max([y_est, y_true]) + 1]
+plt.plot(axis_range, axis_range, "k--")
+plt.plot(y_true, y_est, "ob", alpha=0.25)
+plt.legend(["Perfect estimation", "Model estimations"])
+plt.title("Alcohol content: estimated versus true value (for last CV-fold)")
+plt.ylim(axis_range)
+plt.xlim(axis_range)
+plt.xlabel("True value")
+plt.ylabel("Estimated value")
+plt.grid()
+
+plt.show()
+
+print("Ran Exercise 8.2.5")
+
+
+
+#%%
+# Display results and compare models
 print("Linear regression without feature selection:")
 print("- Training error: {0}".format(Error_train.mean()))
 print("- Test error:     {0}".format(Error_test.mean()))
@@ -194,41 +341,26 @@ print(
     )
 )
 
+print("Baseline model (mean):")
+print(
+    "- Training error: {0}".format(Error_train_nofeatures.mean())
+)
+print(
+    "- Test error:     {0}".format(Error_test_nofeatures.mean())
+)
+
 print("Weights in last fold:")
+
+weightNames = np.concatenate(
+    (["bias"], attributeNames[:-1]), 0
+)  # Add bias term to the names
+#%%
+# for i in range(k):
+
 for m in range(M):
-    print("{:>15} {:>15}".format(attributeNames[m], np.round(w_rlr[m, -1], 2)))
+    print("{:>15} {:>15}".format(weightNames[m], np.round   (np.mean(w_rlr[m, :]), 4)))
 
     
     
 
 
-#%% Fit a linear regression model to the data
-
-# RI_vals = np.array(X_hat[:, 0]).reshape(-1, 1)
-# Ca_vals = np.array(X_hat[:, 6]).reshape(-1, 1)
-
-# Copied from exercise 5.2.2
-
-
-# Fit ordinary least squares regression model
-model = lm.LinearRegression(fit_intercept=True)
-model = model.fit(Ca_vals, RI_vals)
-# Compute model output:
-y_est = model.predict(Ca_vals)
-# Or equivalently:
-# y_est = model.intercept_ + X @ model.coef_
-
-
-# Plot original data and the model output
-f = plt.figure()
-
-plt.plot(Ca_vals, RI_vals, ".")
-# plt.plot(RI_vals, y_true, "-")
-plt.plot(Ca_vals, y_est, "-")
-plt.xlabel("Ca_vals")
-plt.ylabel("RI_vals")
-plt.legend(["Training data", "Data generator", "Regression fit (model)"])
-
-plt.show()
-
-print("Ran Exercise 5.2.2")
