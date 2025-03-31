@@ -17,7 +17,7 @@ filename = 'data/glass+identification/glass.csv'
 data = pd.read_csv(filename)
 
 
-attributeNames = np.asarray(data.columns)[1:]
+attributeNames = np.asarray(data.columns)[2:]
 # attributeNames = 
 
 rawvalues = data.values
@@ -164,7 +164,39 @@ for train_index, test_index in CV.split(X, y):
 
 #%%
 # Display results
+print("Linear regression without feature selection:")
+print("- Training error: {0}".format(Error_train.mean()))
+print("- Test error:     {0}".format(Error_test.mean()))
+print(
+    "- R^2 train:     {0}".format(
+        (Error_train_nofeatures.sum() - Error_train.sum())
+        / Error_train_nofeatures.sum()
+    )
+)
+print(
+    "- R^2 test:     {0}\n".format(
+        (Error_test_nofeatures.sum() - Error_test.sum()) / Error_test_nofeatures.sum()
+    )
+)
+print("Regularized linear regression:")
+print("- Training error: {0}".format(Error_train_rlr.mean()))
+print("- Test error:     {0}".format(Error_test_rlr.mean()))
+print(
+    "- R^2 train:     {0}".format(
+        (Error_train_nofeatures.sum() - Error_train_rlr.sum())
+        / Error_train_nofeatures.sum()
+    )
+)
+print(
+    "- R^2 test:     {0}\n".format(
+        (Error_test_nofeatures.sum() - Error_test_rlr.sum())
+        / Error_test_nofeatures.sum()
+    )
+)
 
+print("Weights in last fold:")
+for m in range(M):
+    print("{:>15} {:>15}".format(attributeNames[m], np.round(w_rlr[m, -1], 2)))
 
     
     
