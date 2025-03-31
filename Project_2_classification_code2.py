@@ -5,6 +5,8 @@ import pandas as pd
 import sklearn.linear_model as lm
 from sklearn import tree
 
+from dtuimldmtools import rlr_validate
+
 #%% Load the dataset
 # Importing the data
 filename = 'data/glass+identification/glass.csv'
@@ -43,7 +45,7 @@ model.fit(X, y)
 print("Training accuracy: ", accuracy_score(y, model.predict(X)))
 # %%
 models = [BaselineModel, LogisticRegressionModel]
-Kin, Kout = 5, 5
+Kin, Kout = 3, 8
 RNDSTATE = 395168
 
 from sklearn import model_selection
@@ -53,32 +55,52 @@ inner_cv = model_selection.KFold(n_splits=Kout, shuffle=True, random_state=RNDST
 
 outer_cv_split = list(outer_cv.split(X, y))
 
-accs = []
-regparams = [0.1, 0.2, 0.5, 1, 1.5]
+regparamss = [[1.0], np.logspace(-4, 4, num=400)]
 
-for m_index, Model in enumerate(models):
-  accs.append([])
-  for (train_idx_outer, test_idx_outer), regparam in zip(outer_cv_split, regparams):
-    accs[-1].append([])
+def evaluate(Model, X_train, y_train, X_test, y_test, *, regparam=1.0):
+  model = Model(regparam=regparam)
+  model.fit(X_train, y_train)
 
-    X_train_outer, X_test_outer = X[train_idx_outer], X[test_idx_outer]
-    y_train_outer, y_test_outer = y[train_idx_outer], y[test_idx_outer]
+  acc = accuracy_score(y_test, model.predict(X_test))
+
+  return acc
 
 
-    for train_idx, test_idx in inner_cv.split(X_train_outer, y_train_outer):
-      X_train, X_test = X_train_outer[train_idx], X_train_outer[test_idx]
-      y_train, y_test = y_train_outer[train_idx], y_train_outer[test_idx]
+def evaluate_fold(Model, X, y, *, regparam=1.0):
+  accs = []
+  for train_idx, test_idx in inner_cv.split(X, y):
+    X_train, X_test = X[train_idx], X[test_idx]
+    y_train, y_test = y[train_idx], y[test_idx]
 
-      model = Model(regparam=regparam)
-      model.fit(X_train, y_train)
+    acc = evaluate(Model, X_train, y_train, X_test, y_test, regparam=regparam)
 
-      acc = accuracy_score(y_test, model.predict(X_test))
+    accs.append(acc)
 
-      accs[-1][-1].append(acc)
+  return sum(accs) / len(accs)
 
-    accs[-1][-1] = sum(accs[-1][-1]) / len(accs[-1][-1])
-    
-  
+
+for Model, regparams in zip(models, regparamss):
+  for train_idx, test_idx in outer_cv_split:
+    X_train, X_test = X[train_idx], X[test_idx]
+    y_train, y_test = y[train_idx], y[test_idx]
+
+    accs = []
+    for regparam in regparams:
+      acc = evaluate_fold(Model, X_train, y_train, regparam=regparam)
+
+      accs.append(acc)
+
+    regparam = regparams[np.argmax(accs[-1])]
+
+    print(max(accs))
+
+    acc = evaluate(Model, X_train, y_train, X_test, y_test, regparam=regparam)
+
+    print("ACC =", acc)
+
+
 # %%
 print(np.array(accs))
+
+print(regparams[np.argmax(accs)])
 # %%
