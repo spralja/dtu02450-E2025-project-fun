@@ -195,6 +195,7 @@ y_ANN = X_ANN[:, [1]]  # Refractive index
 
 print(type(y_ANN.shape))
 print(type(y.shape))
+print(f'X_ANN shape: {X_ANN.shape}')
 print(y_ANN.shape)
 print(y.shape)
 
@@ -504,11 +505,14 @@ def linear_regression_nofeature(X, y, K, comments=True):
     )
 
 
+
 def nn_regression(X, y, n_hidden_units, n_replicates, max_iter, K, comments=True):
 
     try:
         if y.shape != (X.shape[0], 1):
             y = y.reshape((X.shape[0], 1))
+            print("y reshaped to column vector")
+            print(f'y shape: {y.shape}')
     except:
         raise ValueError("y must be a column vector")
 
@@ -562,7 +566,7 @@ def nn_regression(X, y, n_hidden_units, n_replicates, max_iter, K, comments=True
             )
         )
 
-    return net, errors, summaries_axes
+    return net, errors
 
 
 
@@ -576,10 +580,23 @@ lambdas = np.power(10.0, range(-8, 6))
 K = 10
 CV = model_selection.KFold(K, shuffle=True)
 
-K_inner = 3
+N, M = X_ANN.shape
 
-rlr_weight_list = np.empty((K, M))
+K_inner = 3
+# Empty for baseline
+Error_test_nofeatures = np.empty((K, 1))
+
+# Values for rlr
+rlr_weight_list = np.empty((K, M + 1))
 Error_test_rlr = np.empty((K, 1))
+
+# Values for nn
+n_hidden_units = 2  # number of hidden units
+n_replicates = 1  # number of networks trained in each k-fold
+max_iter = 10000
+Error_test_nn = np.empty((K, 1))
+
+
 for k, (train_index, test_index) in enumerate(CV.split(X_ANN, y)):
     
     X_train = X_ANN[train_index]
@@ -588,25 +605,70 @@ for k, (train_index, test_index) in enumerate(CV.split(X_ANN, y)):
     y_test = y[test_index]
     X_test_rlr = np.concatenate((np.ones((X_test.shape[0], 1)), X_test), 1)
 
-    
-    
-    rlr_weights, rlr_lambda = r_linear_regression(X_train, y_train, lambdas, K_inner, comments=True)
+    # Error for baseline model (mean of training data)
+    Error_test_nofeatures[k] = (
+        np.square(y_test - y_train.mean()).sum(axis=0) / y_test.shape[0]
+    )
 
-    
+    print(f'X_train shape: {X_train.shape}')
+    print(f'y_train shape: {y_train.shape}')
+    # Regularized linear regression part
+    rlr_weights, rlr_lambda = r_linear_regression(X_train, y_train, lambdas, K_inner, comments=True)    
     Error_test_rlr[k] = (
         np.square(y_test - X_test_rlr @ rlr_weights).sum(axis=0) / y_test.shape[0]
     )
+    print(f'rlr_weights shape: {rlr_weights.shape}')
     rlr_weight_list[k, :] = rlr_weights
+
+    # NN part
+    net, errors = nn_regression(X_train, y_train, n_hidden_units, n_replicates, max_iter, K_inner, comments=True)
+
+    # Make tensor variants for the test set
+    X_test_nn = torch.Tensor(X_test)
+    y_test_nn = torch.Tensor(y_test.reshape((X_test.shape[0], 1)))
+
+    print(f'X_train shape: {X_train.shape}')
+    print(f'X_test_nn shape: {X_test_nn.shape}')
+
+    # Determine estimated class labels for test set
+    y_test_est = net(X_test_nn)
+
+    # Determine errors and errors
+    se = (y_test_est.float() - y_test_nn.float()) ** 2  # squared error
+    mse = (sum(se).type(torch.float) / len(y_test_nn)).data.numpy()  # mean
+    Error_test_nn[k] = mse  # store error rate for current CV fold
+    
+
+
 
     # print(rlr_lambda)
     
+
+#%%
 rlr_attribute_names = np.concatenate(
     (["bias"], attributeNames[:-1]), 0
 )  # Add bias term to the names
 
+# Baseline Summary
+print(f'Found errors for baseline:\n {Error_test_nofeatures}')
+
+# Rlr Summary
 print(f'Found errors for rlr:\n {Error_test_rlr}')
 print(f'Weights for rlr:\n {rlr_attribute_names} \n {rlr_weight_list}')
 print(f'Largest weight for rlr: {np.max(rlr_weight_list[:,1:]):.5f} for {rlr_attribute_names[1 +np.argmax(np.mean(rlr_weight_list[:,1:], axis=0))]}')
+
+# nn Summary
+print(f'Found errors for nn:\n {np.sqrt(Error_test_nn)}')
+
+avg_nn_error = np.mean(Error_test_nn)
+avg_rlr_error = np.mean(Error_test_rlr)
+avg_baseline_error = np.mean(Error_test_nofeatures)
+
+min_nn_error = np.min(Error_test_nn)
+min_rlr_error = np.min(Error_test_rlr)
+min_baseline_error = np.min(Error_test_nofeatures)
+
+
 
 
 #%%
@@ -615,4 +677,13 @@ print("\n\n")
 
 print("  Results for the different models")
 print("  -------------------------------")
-print("  Model                  Train error   Test error")
+print("  Model                  Test error average")
+print(f'Baseline model: {avg_baseline_error:.8f}')
+print(f'Linear regression: {avg_rlr_error:.8f}')
+print(f'Neural network: {avg_nn_error:.8f}')
+
+print("  -------------------------------")
+print("  Model                  Test error min")
+print(f'Baseline model: {min_baseline_error:.8f}')
+print(f'Linear regression: {min_rlr_error:.8f}')
+print(f'Neural network: {min_nn_error:.8f}')
