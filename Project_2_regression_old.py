@@ -211,7 +211,7 @@ max_iter = 10000
 # K-fold crossvalidation
 K = 3  # only three folds to speed up this example
 
-def nn_regression(X, y, n_hidden_units, n_replicates, max_iter):
+
 CV = model_selection.KFold(K, shuffle=True)
 
 # Setup figure for display of learning curves and error rates in fold

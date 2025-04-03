@@ -18,7 +18,9 @@ from scipy import stats
 from scipy.io import loadmat
 
 from dtuimldmtools import draw_neural_net, train_neural_net
+#%%
 
+print(1.00001+5e-16)
 
 
 
@@ -47,6 +49,10 @@ rawvalues = data.values
 X = rawvalues[:, 2:-1] # Exclude Id, RI and Type columns
 y = rawvalues[:, 1] # RI column
 
+# Remove Na, Mg, Ba, and Fe columns as we know their correlations are insiginificant
+X = np.delete(X, [0, 1, -2, -1], axis=1) # Remove Na, Mg, Ba, and Fe columns
+
+# X = X[:, -2:-1]
 
 
 N, M = X.shape
@@ -56,6 +62,9 @@ X_ANN = X # Save the original X for ANN later
 
 X = np.concatenate((np.ones((X.shape[0], 1)), X), 1)
 print(X.shape)
+
+# standardize y, just to see.
+y = stats.zscore(y, 0)
 
 print(f'Number of observations: {N}')
 
@@ -82,7 +91,8 @@ def r_linear_regression(X, y, lambdas, K, comments=True):
     Error_train = np.empty((K, 1))
     Error_test = np.empty((K, 1))
     Error_train_rlr = np.empty((K, 1))
-    Error_test_rlr = np.empty((K, 1))
+    Error_test_rlr = np.empty((K))
+    Error_test_rlr_list = []
     w_rlr = np.empty((M, K))
     mu = np.empty((K, M - 1))
     sigma = np.empty((K, M - 1))
@@ -90,6 +100,8 @@ def r_linear_regression(X, y, lambdas, K, comments=True):
 
     k = 0
     lams = np.empty((K, 1))
+
+    best_err = 1e100
     
     for train_index, test_index in CV.split(X, y):
         # extract training and test set for current CV fold
@@ -111,12 +123,9 @@ def r_linear_regression(X, y, lambdas, K, comments=True):
         mu[k, :] = np.mean(X_train[:, 1:], 0)
         sigma[k, :] = np.std(X_train[:, 1:], 0)
 
-        # if sigma[k, :] != 0:
         X_train[:, 1:] = (X_train[:, 1:] - mu[k, :]) / sigma[k, :]
         X_test[:, 1:] = (X_test[:, 1:] - mu[k, :]) / sigma[k, :]
-        # else:
-        #     X_train[:, 1:] = X_train[:, 1:] - mu[k, :]
-        #     X_test[:, 1:] = X_test[:, 1:] - mu[k, :]
+
 
         Xty = X_train.T @ y_train
         XtX = X_train.T @ X_train
@@ -125,44 +134,31 @@ def r_linear_regression(X, y, lambdas, K, comments=True):
         lambdaI = opt_lambda * np.eye(M)
         lambdaI[0, 0] = 0  # Do no regularize the bias term
         w_rlr[:, k] = np.linalg.solve(XtX + lambdaI, Xty).squeeze()
-
+        
         # Compute mean squared error with regularization
         Error_train_rlr[k] = (
             np.square(y_train - X_train @ w_rlr[:, k]).sum(axis=0) / y_train.shape[0]
         )
         Error_test_rlr[k] = (
             np.square(y_test - X_test @ w_rlr[:, k]).sum(axis=0) / y_test.shape[0]
-        )
-
+        )        
+        if Error_test_rlr[k] < best_err:
+            newbest_weight = w_rlr[:, k]
+            best_err = Error_test_rlr[k]
+            # print(f'new best weight: {newbest_weight}')
+        Error_test_rlr_list.append( np.square(y_test - X_test @ w_rlr[:, k]).sum(axis=0) / y_test.shape[0])
         lams[k] = opt_lambda
-
-        # Estimate weights for unregularized linear regression, on entire training set
-        w_noreg[:, k] = np.linalg.solve(XtX, Xty).squeeze()
-        # Compute mean squared error without regularization
-        Error_train[k] = (
-            np.square(y_train - X_train @ w_noreg[:, k]).sum(axis=0) / y_train.shape[0]
-        )
-        Error_test[k] = (
-            np.square(y_test - X_test @ w_noreg[:, k]).sum(axis=0) / y_test.shape[0]
-        )
 
     best_val_err = np.min(np.mean(Error_test_rlr, axis=0))
     best_lambda = lambdas[np.argmin(np.mean(Error_test_rlr, axis=0))]
-    best_weights = w_rlr[:, np.argmin(np.mean(Error_test_rlr, axis=0))]
+    best_weights = newbest_weight
+
 
     return (
         best_weights,
         best_lambda,  # optimal lambda
     )
 
-def linear_regression_nofeature(X, y, K, comments=True):
-    # Compute mean squared error without using the input data at all
-    Error_train_nofeatures[k] = (
-        np.square(y_train - y_train.mean()).sum(axis=0) / y_train.shape[0]
-    )
-    Error_test_nofeatures[k] = (
-        np.square(y_test - y_test.mean()).sum(axis=0) / y_test.shape[0]
-    )
 
 
 
@@ -232,13 +228,14 @@ def nn_regression(X, y, n_hidden_units, n_replicates, max_iter, K, comments=True
 
 
 
-#%%
+# #%%
 # The two-level cross-validation
 
 # Values of lambda
 lambdas = np.power(10.0, range(-8, 6))
 K = 10
 CV = model_selection.KFold(K, shuffle=True)
+
 
 N, M = X_ANN.shape
 
@@ -249,6 +246,7 @@ Error_test_nofeatures = np.empty((K, 1))
 # Values for rlr
 rlr_weight_list = np.empty((K, M + 1))
 Error_test_rlr = np.empty((K, 1))
+found_lambdas = np.empty((K, 1))
 
 # Values for nn
 n_hidden_units = 2  # number of hidden units
@@ -263,33 +261,37 @@ for k, (train_index, test_index) in enumerate(CV.split(X_ANN, y)):
     y_train = y[train_index]
     X_test = X_ANN[test_index]
     y_test = y[test_index]
-    X_test_rlr = np.concatenate((np.ones((X_test.shape[0], 1)), X_test), 1)
+    
+
+    # Standardize X_test_rlr to make it compatible with the weights from rlr
+    mu = np.mean(X_test[:, :], 0)
+    sigma = np.std(X_test[:, :], 0)
+    X_test_hat = (X_test[:, :] - mu) / sigma
+    X_test_rlr = np.concatenate((np.ones((X_test_hat.shape[0], 1)), X_test_hat), 1)
+
 
     # Error for baseline model (mean of training data)
     Error_test_nofeatures[k] = (
-        np.square(y_test - y_train.mean()).sum(axis=0) / y_test.shape[0]
+        np.square(y_test - y_test.mean()).sum(axis=0) / y_test.shape[0]
     )
+    # print(f'Error_test_nofeatures: {Error_test_nofeatures[k]}')
 
-    print(f'X_train shape: {X_train.shape}')
-    print(f'y_train shape: {y_train.shape}')
-    # Regularized linear regression part
     rlr_weights, rlr_lambda = r_linear_regression(X_train, y_train, lambdas, K_inner, comments=True)    
     Error_test_rlr[k] = (
         np.square(y_test - X_test_rlr @ rlr_weights).sum(axis=0) / y_test.shape[0]
     )
-    print(f'rlr_weights shape: {rlr_weights.shape}')
-    rlr_weight_list[k, :] = rlr_weights
+    
+    rlr_weight_list[k, :] = rlr_weights # store weights for current CV fold
+    found_lambdas[k] = rlr_lambda # store lambda for current CV fold
 
     # NN part
     net, errors = nn_regression(X_train, y_train, n_hidden_units, n_replicates, max_iter, K_inner, comments=True)
-
+    
     # Make tensor variants for the test set
     X_test_nn = torch.Tensor(X_test)
     y_test_nn = torch.Tensor(y_test.reshape((X_test.shape[0], 1)))
 
-    print(f'X_train shape: {X_train.shape}')
-    print(f'X_test_nn shape: {X_test_nn.shape}')
-
+    
     # Determine estimated class labels for test set
     y_test_est = net(X_test_nn)
 
@@ -301,13 +303,15 @@ for k, (train_index, test_index) in enumerate(CV.split(X_ANN, y)):
 
 
 
-    # print(rlr_lambda)
     
 
 #%%
 rlr_attribute_names = np.concatenate(
     (["bias"], attributeNames[:-1]), 0
 )  # Add bias term to the names
+
+# Remove Na, Mg, Ba, and Fe columns as we know their correlations are insiginificant
+rlr_attribute_names = np.delete(rlr_attribute_names, [1, 2, -2, -1], axis=0) # Remove Na, Mg, Ba, and Fe columns
 
 # Baseline Summary
 print(f'Found errors for baseline:\n {Error_test_nofeatures}')
@@ -347,3 +351,4 @@ print("  Model                  Test error min")
 print(f'Baseline model: {min_baseline_error:.8f}')
 print(f'Linear regression: {min_rlr_error:.8f}')
 print(f'Neural network: {min_nn_error:.8f}')
+
