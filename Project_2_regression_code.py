@@ -375,10 +375,10 @@ table = pd.DataFrame(
     {
         'Outer fold': np.arange(1, K + 1),
         'ANN n': h_list.flatten(),
-        'ANN E': Error_test_nn.flatten(),
+        'ANN E': np.round(Error_test_nn,10).flatten(),
         'Linear regression lambda': found_lambdas.flatten(),
-        'Linear regression E': Error_test_rlr.flatten(),
-        'Baseline E': Error_test_nofeatures.flatten()
+        'Linear regression E': np.round(Error_test_rlr,10).flatten(),
+        'Baseline E': np.round(Error_test_nofeatures,10).flatten()
     }
 )
 
