@@ -64,7 +64,7 @@ X = np.concatenate((np.ones((X.shape[0], 1)), X), 1)
 print(X.shape)
 
 # standardize y, just to see.
-y = stats.zscore(y, 0)
+# y = stats.zscore(y, 0)
 
 print(f'Number of observations: {N}')
 
@@ -162,7 +162,7 @@ def r_linear_regression(X, y, lambdas, K, comments=True):
 
 
 
-def nn_regression(X, y, n_hidden_units, n_replicates, max_iter, K, comments=True):
+def nn_regression(X, y, n_hidden_units_list, n_replicates, max_iter, K, comments=True):
 
     try:
         if y.shape != (X.shape[0], 1):
@@ -174,46 +174,69 @@ def nn_regression(X, y, n_hidden_units, n_replicates, max_iter, K, comments=True
 
     CV = model_selection.KFold(K, shuffle=True)
 
-    # Define the model
-    model = lambda: torch.nn.Sequential(
-        torch.nn.Linear(M, n_hidden_units),  # M features to n_hidden_units
-        torch.nn.Tanh(),  # 1st transfer function,
-        torch.nn.Linear(n_hidden_units, 1),  # n_hidden_units to 1 output neuron
-        # no final tranfer function, i.e. "linear output"
-    )
+    # # Define the model
+    # model = lambda: torch.nn.Sequential(
+    #     torch.nn.Linear(M, n_hidden_units),  # M features to n_hidden_units
+    #     torch.nn.Tanh(),  # 1st transfer function,
+    #     torch.nn.Linear(n_hidden_units, 1),  # n_hidden_units to 1 output neuron
+    #     # no final tranfer function, i.e. "linear output"
+    # )
 
-    loss_fn = torch.nn.MSELoss()  # mean-squared-error loss
-    print("Training model of type:\n\n{}\n".format(str(model()))) if comments else None
+    # loss_fn = torch.nn.MSELoss()  # mean-squared-error loss
+
+    best_error = 1e100  # initialize best loss to a large number
     errors = []  # make a list for storing generalizaition error in each loop
     for k, (train_index, test_index) in enumerate(CV.split(X, y)):
-        print("\nCrossvalidation fold: {0}/{1}".format(k + 1, K)) if comments else None
-            
-        # Extract training and test set for current CV fold, convert to tensors
-        X_train = torch.Tensor(X[train_index, :])
-        y_train = torch.Tensor(y[train_index])
-        X_test = torch.Tensor(X[test_index, :])
-        y_test = torch.Tensor(y[test_index])
-
-        # Train the net on training data
-        net, final_loss, learning_curve = train_neural_net(
-            model,
-            loss_fn,
-            X=X_train,
-            y=y_train,
-            n_replicates=n_replicates,
-            max_iter=max_iter,
-        )
-
-        print("\n\tBest loss: {}\n".format(final_loss)) if comments else None
-
-        # Determine estimated class labels for test set
-        y_test_est = net(X_test)
-
-        # Determine errors and errors
-        se = (y_test_est.float() - y_test.float()) ** 2  # squared error
-        mse = (sum(se).type(torch.float) / len(y_test)).data.numpy()  # mean
-        errors.append(mse)  # store error rate for current CV fold
+        
+        for n_hidden_units in n_hidden_units_list:
+            # Define the model
+            model = lambda: torch.nn.Sequential(
+                torch.nn.Linear(M, n_hidden_units),  # M features to n_hidden_units
+                torch.nn.Tanh(),  # 1st transfer function,
+                torch.nn.Linear(n_hidden_units, 1),  # n_hidden_units to 1 output neuron
+                # no final tranfer function, i.e. "linear output"
+            )
+            print("Training model of type:\n\n{}\n".format(str(model()))) if comments else None
     
+            loss_fn = torch.nn.MSELoss()  # mean-squared-error loss 
+            
+            print("\nCrossvalidation fold: {0}/{1}".format(k + 1, K)) if comments else None
+                
+            # Extract training and test set for current CV fold, convert to tensors
+            X_train = torch.Tensor(X[train_index, :])
+            y_train = torch.Tensor(y[train_index])
+            X_test = torch.Tensor(X[test_index, :])
+            y_test = torch.Tensor(y[test_index])
+
+            # Train the net on training data
+            net, final_loss, learning_curve = train_neural_net(
+                model,
+                loss_fn,
+                X=X_train,
+                y=y_train,
+                n_replicates=n_replicates,
+                max_iter=max_iter,
+            )
+
+            
+
+            print("\n\tBest loss: {}\n".format(final_loss)) if comments else None
+
+            # Determine estimated class labels for test set
+            y_test_est = net(X_test)
+
+            # Determine errors and errors
+            se = (y_test_est.float() - y_test.float()) ** 2  # squared error
+            mse = (sum(se).type(torch.float) / len(y_test)).data.numpy()  # mean
+            errors.append(mse)  # store error rate for current CV fold
+
+            if mse < best_error:
+                best_error = mse
+                # print(f'new best loss: {best_loss}')
+                best_net = net
+                best_complexity = n_hidden_units
+                print(f'new best complexity: {best_complexity} with error: {best_error}')
+
     # Print the average classification error rate
     if comments:
         print(
@@ -222,7 +245,7 @@ def nn_regression(X, y, n_hidden_units, n_replicates, max_iter, K, comments=True
             )
         )
 
-    return net, errors
+    return net, errors, best_complexity, best_error
 
 
 
@@ -249,10 +272,11 @@ Error_test_rlr = np.empty((K, 1))
 found_lambdas = np.empty((K, 1))
 
 # Values for nn
-n_hidden_units = 2  # number of hidden units
+n_hidden_units = [1,2,3]  # number of hidden units
 n_replicates = 1  # number of networks trained in each k-fold
 max_iter = 10000
 Error_test_nn = np.empty((K, 1))
+h_list = np.empty((K, 1))
 
 
 for k, (train_index, test_index) in enumerate(CV.split(X_ANN, y)):
@@ -285,7 +309,7 @@ for k, (train_index, test_index) in enumerate(CV.split(X_ANN, y)):
     found_lambdas[k] = rlr_lambda # store lambda for current CV fold
 
     # NN part
-    net, errors = nn_regression(X_train, y_train, n_hidden_units, n_replicates, max_iter, K_inner, comments=True)
+    net, errors, h_list[k], nn_best_error = nn_regression(X_train, y_train, n_hidden_units, n_replicates, max_iter, K_inner, comments=True)
     
     # Make tensor variants for the test set
     X_test_nn = torch.Tensor(X_test)
@@ -322,7 +346,8 @@ print(f'Weights for rlr:\n {rlr_attribute_names} \n {rlr_weight_list}')
 print(f'Largest weight for rlr: {np.max(rlr_weight_list[:,1:]):.5f} for {rlr_attribute_names[1 +np.argmax(np.mean(rlr_weight_list[:,1:], axis=0))]}')
 
 # nn Summary
-print(f'Found errors for nn:\n {np.sqrt(Error_test_nn)}')
+print(f'Found errors for nn:\n {Error_test_nn}')
+print(f'Complexities for nn: {h_list}')
 
 avg_nn_error = np.mean(Error_test_nn)
 avg_rlr_error = np.mean(Error_test_rlr)
@@ -331,9 +356,35 @@ avg_baseline_error = np.mean(Error_test_nofeatures)
 min_nn_error = np.min(Error_test_nn)
 min_rlr_error = np.min(Error_test_rlr)
 min_baseline_error = np.min(Error_test_nofeatures)
+#%%
+print('shapes: h_list, Error_test_nn, found_lambdas, Error_test_rlr, Error_test_nofeatures')
+print(f'{h_list.shape}, {Error_test_nn.shape}, {found_lambdas.shape}, {Error_test_rlr.shape}, {Error_test_nofeatures.shape}')
+
+#%%
+# Print a table of the results
+print("\n\n")
+print('Results for the different models')
+print('Outer fold    ANN       Linear regression    Baseline')
+print('i          h_i   E_i       lambda_i    E_i         E_i')
+for i in range(K):
+    print(f'{i+1}          {h_list[i,0]}   {Error_test_nn[i,0]}   {found_lambdas[i,0]}    {Error_test_rlr[i,0]}    {Error_test_nofeatures[i,0]}')
 
 
+#%%
+table = pd.DataFrame(
+    {
+        'Outer fold': np.arange(1, K + 1),
+        'ANN n': h_list.flatten(),
+        'ANN E': Error_test_nn.flatten(),
+        'Linear regression lambda': found_lambdas.flatten(),
+        'Linear regression E': Error_test_rlr.flatten(),
+        'Baseline E': Error_test_nofeatures.flatten()
+    }
+)
 
+print(table)
+
+table.to_csv('regression_table.csv', index=False)
 
 #%%
 # Print a table of the results
@@ -351,4 +402,5 @@ print("  Model                  Test error min")
 print(f'Baseline model: {min_baseline_error:.8f}')
 print(f'Linear regression: {min_rlr_error:.8f}')
 print(f'Neural network: {min_nn_error:.8f}')
+print(f'Complexity for best nn: {h_list[np.argmin(Error_test_nn)]}')
 
