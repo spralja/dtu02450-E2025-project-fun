@@ -7,7 +7,7 @@ class LogisticRegressionModel(BaseModel):
   def __init__(self, regparam=1.0, *, standardize=True):
     super().__init__(regparam, standardize=standardize)
 
-    self._model = lm.LogisticRegression(solver='lbfgs', C=1 / self.regparam)
+    self._model = lm.LogisticRegression(C=1 / self.regparam, max_iter=1000)
 
   def fit(self, X, y):
     self._init_preprocess(X, y)
