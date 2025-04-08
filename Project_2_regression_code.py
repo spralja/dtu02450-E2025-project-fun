@@ -18,9 +18,6 @@ from scipy import stats
 from scipy.io import loadmat
 
 from dtuimldmtools import draw_neural_net, train_neural_net
-#%%
-
-print(1.00001+5e-16)
 
 
 
@@ -30,54 +27,28 @@ filename = 'data/glass+identification/glass.csv'
 
 data = pd.read_csv(filename)
 
-
 attributeNames = np.asarray(data.columns)[2:]
 
 attributeNames = [format(name) for name in attributeNames]
 
 
 #%%
-print(type(attributeNames))
-#%%
-# attributeNames = 
 
 rawvalues = data.values
-# X = rawvalues[:, 1:-1] # Exclude first (Id) and last (Type) columns
-# y = rawvalues[:, -1] # Last column (Type)
 
 # Set the X values to be the variables we are fitting from and the y values to be the refractive index
 X = rawvalues[:, 2:-1] # Exclude Id, RI and Type columns
 y = rawvalues[:, 1] # RI column
 
 # Remove Na, Mg, Ba, and Fe columns as we know their correlations are insiginificant
-X = np.delete(X, [0, 1, -2, -1], axis=1) # Remove Na, Mg, Ba, and Fe columns
-
-# X = X[:, -2:-1]
-
-
-N, M = X.shape
-M = M + 1
-
-X_ANN = X # Save the original X for ANN later
-
-X = np.concatenate((np.ones((X.shape[0], 1)), X), 1)
-print(X.shape)
-
-# standardize y, just to see.
-# y = stats.zscore(y, 0)
-
-print(f'Number of observations: {N}')
-
-C = 7
-classNames = ['building_windows_float_processed', 'building_windows_non_float_processed', 'vehicle_windows_float_processed', 'vehicle_windows_non_float_processed', 'containers', 'tableware', 'headlamps']
-
-
+# X = np.delete(X, [0, 1, -2, -1], axis=1) # Remove Na, Mg, Ba, and Fe columns
 
 
 #%%
 # Functions for the models
 
-def r_linear_regression(X, y, lambdas, K, comments=True):
+def r_linear_regression(X, y, lambdas, K):
+    
     N, M = X.shape
     M = M + 1
 
@@ -87,19 +58,13 @@ def r_linear_regression(X, y, lambdas, K, comments=True):
     CV = model_selection.KFold(K, shuffle=True)
 
     # Initialize variables
-    # T = len(lambdas)
-    Error_train = np.empty((K, 1))
-    Error_test = np.empty((K, 1))
     Error_train_rlr = np.empty((K, 1))
     Error_test_rlr = np.empty((K))
-    Error_test_rlr_list = []
     w_rlr = np.empty((M, K))
     mu = np.empty((K, M - 1))
     sigma = np.empty((K, M - 1))
-    w_noreg = np.empty((M, K))
 
     k = 0
-    lams = np.empty((K, 1))
 
     best_err = 1e100
     
@@ -143,15 +108,9 @@ def r_linear_regression(X, y, lambdas, K, comments=True):
             np.square(y_test - X_test @ w_rlr[:, k]).sum(axis=0) / y_test.shape[0]
         )        
         if Error_test_rlr[k] < best_err:
-            newbest_weight = w_rlr[:, k]
+            best_weights = w_rlr[:, k]
             best_err = Error_test_rlr[k]
-            # print(f'new best weight: {newbest_weight}')
-        Error_test_rlr_list.append( np.square(y_test - X_test @ w_rlr[:, k]).sum(axis=0) / y_test.shape[0])
-        lams[k] = opt_lambda
-
-    best_val_err = np.min(np.mean(Error_test_rlr, axis=0))
-    best_lambda = lambdas[np.argmin(np.mean(Error_test_rlr, axis=0))]
-    best_weights = newbest_weight
+            best_lambda = opt_lambda
 
 
     return (
@@ -173,16 +132,6 @@ def nn_regression(X, y, n_hidden_units_list, n_replicates, max_iter, K, comments
         raise ValueError("y must be a column vector")
 
     CV = model_selection.KFold(K, shuffle=True)
-
-    # # Define the model
-    # model = lambda: torch.nn.Sequential(
-    #     torch.nn.Linear(M, n_hidden_units),  # M features to n_hidden_units
-    #     torch.nn.Tanh(),  # 1st transfer function,
-    #     torch.nn.Linear(n_hidden_units, 1),  # n_hidden_units to 1 output neuron
-    #     # no final tranfer function, i.e. "linear output"
-    # )
-
-    # loss_fn = torch.nn.MSELoss()  # mean-squared-error loss
 
     best_error = 1e100  # initialize best loss to a large number
     errors = []  # make a list for storing generalizaition error in each loop
@@ -249,8 +198,6 @@ def nn_regression(X, y, n_hidden_units_list, n_replicates, max_iter, K, comments
 
 
 
-
-
 # #%%
 # The two-level cross-validation
 
@@ -260,7 +207,7 @@ K = 10
 CV = model_selection.KFold(K, shuffle=True)
 
 
-N, M = X_ANN.shape
+N, M = X.shape
 
 K_inner = 3
 # Empty for baseline
@@ -279,11 +226,11 @@ Error_test_nn = np.empty((K, 1))
 h_list = np.empty((K, 1))
 
 
-for k, (train_index, test_index) in enumerate(CV.split(X_ANN, y)):
+for k, (train_index, test_index) in enumerate(CV.split(X, y)):
     
-    X_train = X_ANN[train_index]
+    X_train = X[train_index]
     y_train = y[train_index]
-    X_test = X_ANN[test_index]
+    X_test = X[test_index]
     y_test = y[test_index]
     
 
@@ -300,7 +247,7 @@ for k, (train_index, test_index) in enumerate(CV.split(X_ANN, y)):
     )
     # print(f'Error_test_nofeatures: {Error_test_nofeatures[k]}')
 
-    rlr_weights, rlr_lambda = r_linear_regression(X_train, y_train, lambdas, K_inner, comments=True)    
+    rlr_weights, rlr_lambda = r_linear_regression(X_train, y_train, lambdas, K_inner)    
     Error_test_rlr[k] = (
         np.square(y_test - X_test_rlr @ rlr_weights).sum(axis=0) / y_test.shape[0]
     )
@@ -335,7 +282,7 @@ rlr_attribute_names = np.concatenate(
 )  # Add bias term to the names
 
 # Remove Na, Mg, Ba, and Fe columns as we know their correlations are insiginificant
-rlr_attribute_names = np.delete(rlr_attribute_names, [1, 2, -2, -1], axis=0) # Remove Na, Mg, Ba, and Fe columns
+# rlr_attribute_names = np.delete(rlr_attribute_names, [1, 2, -2, -1], axis=0) # Remove Na, Mg, Ba, and Fe columns
 
 # Baseline Summary
 print(f'Found errors for baseline:\n {Error_test_nofeatures}')
