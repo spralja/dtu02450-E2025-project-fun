@@ -3,3 +3,4 @@ venv/
 
 local.ipynb
 path.txt
+*.png
