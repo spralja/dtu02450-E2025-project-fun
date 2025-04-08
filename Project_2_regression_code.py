@@ -68,49 +68,73 @@ def r_linear_regression(X, y, lambdas, K):
 
     best_err = 1e100
     
-    for train_index, test_index in CV.split(X, y):
-        # extract training and test set for current CV fold
-        X_train = X[train_index]
-        y_train = y[train_index]
-        X_test = X[test_index]
-        y_test = y[test_index]
-        internal_cross_validation = 10
+    # Analyze different values of lambda
+    for s in range(len(lambdas)):
         
-        (
-            opt_val_err,
-            opt_lambda,
-            mean_w_vs_lambda,
-            train_err_vs_lambda,
-            test_err_vs_lambda,
-        ) = rlr_validate(X_train, y_train, lambdas, internal_cross_validation)
+        lambda_s = lambdas[s]
+        error_s = 0
 
-        # Standardize
-        mu[k, :] = np.mean(X_train[:, 1:], 0)
-        sigma[k, :] = np.std(X_train[:, 1:], 0)
+        for train_index, test_index in CV.split(X, y):
+            # extract training and test set for current CV fold
+            X_train = X[train_index]
+            y_train = y[train_index]
+            X_test = X[test_index]
+            y_test = y[test_index]
+            
+            # internal_cross_validation = 10
+            
+            # (
+            #     opt_val_err,
+            #     opt_lambda,
+            #     mean_w_vs_lambda,
+            #     train_err_vs_lambda,
+            #     test_err_vs_lambda,
+            # ) = rlr_validate(X_train, y_train, lambdas, internal_cross_validation)
 
-        X_train[:, 1:] = (X_train[:, 1:] - mu[k, :]) / sigma[k, :]
-        X_test[:, 1:] = (X_test[:, 1:] - mu[k, :]) / sigma[k, :]
+
+            # Standardize
+            mu[k, :] = np.mean(X_train[:, 1:], 0)
+            sigma[k, :] = np.std(X_train[:, 1:], 0)
+
+            X_train[:, 1:] = (X_train[:, 1:] - mu[k, :]) / sigma[k, :]
+            X_test[:, 1:] = (X_test[:, 1:] - mu[k, :]) / sigma[k, :]
 
 
-        Xty = X_train.T @ y_train
-        XtX = X_train.T @ X_train
+            Xty = X_train.T @ y_train
+            XtX = X_train.T @ X_train
 
-        # Estimate weights for the optimal value of lambda, on entire training set
-        lambdaI = opt_lambda * np.eye(M)
-        lambdaI[0, 0] = 0  # Do no regularize the bias term
-        w_rlr[:, k] = np.linalg.solve(XtX + lambdaI, Xty).squeeze()
+            # Estimate weights for the optimal value of lambda, on entire training set
+            lambdaI = lambda_s * np.eye(M)
+            lambdaI[0, 0] = 0  # Do no regularize the bias term
+            w_rlr[:, k] = np.linalg.solve(XtX + lambdaI, Xty).squeeze()
+            
+            # Compute mean squared error with regularization
+            Error_train_rlr[k] = (
+                np.square(y_train - X_train @ w_rlr[:, k]).sum(axis=0) / y_train.shape[0]
+            )
+            Error_test_rlr[k] = (
+                np.square(y_test - X_test @ w_rlr[:, k]).sum(axis=0) / y_test.shape[0]
+            )
+            error_s += Error_test_rlr[k]  # Add error for the current fold
+
+        if error_s < best_err:
+            # best_weights = w_rlr[:, k]
+            best_err = error_s
+            best_lambda = lambda_s
         
-        # Compute mean squared error with regularization
-        Error_train_rlr[k] = (
-            np.square(y_train - X_train @ w_rlr[:, k]).sum(axis=0) / y_train.shape[0]
-        )
-        Error_test_rlr[k] = (
-            np.square(y_test - X_test @ w_rlr[:, k]).sum(axis=0) / y_test.shape[0]
-        )        
-        if Error_test_rlr[k] < best_err:
-            best_weights = w_rlr[:, k]
-            best_err = Error_test_rlr[k]
-            best_lambda = opt_lambda
+    mu = np.mean(X[:, 1:], 0)
+    sigma = np.std(X[:, 1:], 0)
+
+    # Standardize the entire dataset
+    X[:, 1:] = (X[:, 1:] - mu) / sigma
+    
+    Xty = X.T @ y
+    XtX = X.T @ X
+
+    # Estimate weights for the optimal value of lambda, on entire training set
+    lambdaI = best_lambda * np.eye(M)
+    lambdaI[0, 0] = 0  # Do no regularize the bias term
+    best_weights = np.linalg.solve(XtX + lambdaI, Xty).squeeze()
 
 
     return (
@@ -126,8 +150,8 @@ def nn_regression(X, y, n_hidden_units_list, n_replicates, max_iter, K, comments
     try:
         if y.shape != (X.shape[0], 1):
             y = y.reshape((X.shape[0], 1))
-            print("y reshaped to column vector")
-            print(f'y shape: {y.shape}')
+            # print("y reshaped to column vector")
+            # print(f'y shape: {y.shape}')
     except:
         raise ValueError("y must be a column vector")
 
@@ -135,21 +159,22 @@ def nn_regression(X, y, n_hidden_units_list, n_replicates, max_iter, K, comments
 
     best_error = 1e100  # initialize best loss to a large number
     errors = []  # make a list for storing generalizaition error in each loop
-    for k, (train_index, test_index) in enumerate(CV.split(X, y)):
+
+    for n_hidden_units in n_hidden_units_list:
+            
+        # Define the model
+        model = lambda: torch.nn.Sequential(
+            torch.nn.Linear(M, n_hidden_units),  # M features to n_hidden_units
+            torch.nn.Tanh(),  # 1st transfer function,
+            torch.nn.Linear(n_hidden_units, 1),  # n_hidden_units to 1 output neuron
+        )
+        error_n = 0
+
+        for k, (train_index, test_index) in enumerate(CV.split(X, y)):
         
-        for n_hidden_units in n_hidden_units_list:
-            # Define the model
-            model = lambda: torch.nn.Sequential(
-                torch.nn.Linear(M, n_hidden_units),  # M features to n_hidden_units
-                torch.nn.Tanh(),  # 1st transfer function,
-                torch.nn.Linear(n_hidden_units, 1),  # n_hidden_units to 1 output neuron
-                # no final tranfer function, i.e. "linear output"
-            )
-            print("Training model of type:\n\n{}\n".format(str(model()))) if comments else None
+        
     
             loss_fn = torch.nn.MSELoss()  # mean-squared-error loss 
-            
-            print("\nCrossvalidation fold: {0}/{1}".format(k + 1, K)) if comments else None
                 
             # Extract training and test set for current CV fold, convert to tensors
             X_train = torch.Tensor(X[train_index, :])
@@ -167,10 +192,6 @@ def nn_regression(X, y, n_hidden_units_list, n_replicates, max_iter, K, comments
                 max_iter=max_iter,
             )
 
-            
-
-            print("\n\tBest loss: {}\n".format(final_loss)) if comments else None
-
             # Determine estimated class labels for test set
             y_test_est = net(X_test)
 
@@ -178,23 +199,41 @@ def nn_regression(X, y, n_hidden_units_list, n_replicates, max_iter, K, comments
             se = (y_test_est.float() - y_test.float()) ** 2  # squared error
             mse = (sum(se).type(torch.float) / len(y_test)).data.numpy()  # mean
             errors.append(mse)  # store error rate for current CV fold
+            error_n += mse  # Add error for the current fold
+        
+        error_n /= K  # Average error for the current fold
 
-            if mse < best_error:
-                best_error = mse
-                # print(f'new best loss: {best_loss}')
-                best_net = net
-                best_complexity = n_hidden_units
-                print(f'new best complexity: {best_complexity} with error: {best_error}')
+        if error_n < best_error:
+            best_error = error_n
+            # print(f'new best loss: {best_loss}')
+            best_net = net
+            best_complexity = n_hidden_units
+            # print(f'new best complexity: {best_complexity} with error: {best_error}')
 
-    # Print the average classification error rate
-    if comments:
-        print(
-            "\nEstimated generalization error, RMSE: {0}".format(
-                round(np.sqrt(np.mean(errors)), 4)
-            )
+    
+    model = lambda: torch.nn.Sequential(
+        torch.nn.Linear(M, n_hidden_units),  # M features to n_hidden_units
+        torch.nn.Tanh(),  # 1st transfer function,
+        torch.nn.Linear(n_hidden_units, 1),  # n_hidden_units to 1 output neuron
+        )
+    
+    X = torch.Tensor(X)
+    y = torch.Tensor(y)
+    
+    net, final_loss, learning_curve = train_neural_net(
+        model,
+        loss_fn,
+        X=X,
+        y=y,
+        n_replicates=best_complexity,
+        max_iter=max_iter,
         )
 
-    return net, errors, best_complexity, best_error
+    
+
+
+
+    return net, best_complexity, best_error
 
 
 
@@ -256,7 +295,7 @@ for k, (train_index, test_index) in enumerate(CV.split(X, y)):
     found_lambdas[k] = rlr_lambda # store lambda for current CV fold
 
     # NN part
-    net, errors, h_list[k], nn_best_error = nn_regression(X_train, y_train, n_hidden_units, n_replicates, max_iter, K_inner, comments=True)
+    net, h_list[k], nn_best_error = nn_regression(X_train, y_train, n_hidden_units, n_replicates, max_iter, K_inner, comments=True)
     
     # Make tensor variants for the test set
     X_test_nn = torch.Tensor(X_test)
