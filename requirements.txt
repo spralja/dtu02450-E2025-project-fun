@@ -35,6 +35,7 @@ numpy==2.2.3
 packaging==24.2
 pandas==2.2.3
 parso==0.8.4
+patsy==1.0.1
 pexpect==4.9.0
 pillow==11.1.0
 platformdirs==4.3.6
@@ -51,8 +52,10 @@ regex==2024.11.6
 requests==2.32.3
 scikit-learn==1.6.1
 scipy==1.15.2
+seaborn==0.13.2
 six==1.17.0
 stack-data==0.6.3
+statsmodels==0.14.4
 sympy==1.13.1
 threadpoolctl==3.6.0
 torch==2.6.0
