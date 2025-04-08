@@ -81,25 +81,14 @@ def r_linear_regression(X, y, lambdas, K):
             X_test = X[test_index]
             y_test = y[test_index]
             
-            # internal_cross_validation = 10
-            
-            # (
-            #     opt_val_err,
-            #     opt_lambda,
-            #     mean_w_vs_lambda,
-            #     train_err_vs_lambda,
-            #     test_err_vs_lambda,
-            # ) = rlr_validate(X_train, y_train, lambdas, internal_cross_validation)
-
-
             # Standardize
             mu[k, :] = np.mean(X_train[:, 1:], 0)
             sigma[k, :] = np.std(X_train[:, 1:], 0)
-
             X_train[:, 1:] = (X_train[:, 1:] - mu[k, :]) / sigma[k, :]
             X_test[:, 1:] = (X_test[:, 1:] - mu[k, :]) / sigma[k, :]
 
 
+            # Dot the matrices for the linear regression
             Xty = X_train.T @ y_train
             XtX = X_train.T @ X_train
 
