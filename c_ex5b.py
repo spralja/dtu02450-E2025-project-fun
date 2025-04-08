@@ -27,7 +27,7 @@ classNames = ['building_windows_float_processed', 'building_windows_non_float_pr
 
 
 #%% Set CONSTANTS
-regparam = 1000
+regparam = 10e-7
 
 #%%
 model = LinearRegressionModel(regparam=regparam)

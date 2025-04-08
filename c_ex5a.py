@@ -26,7 +26,7 @@ classNames = ['building_windows_float_processed', 'building_windows_non_float_pr
 
 
 #%% Set CONSTANTS
-regparam = 0.05
+regparam = 0.1
 
 #%%
 model = LogisticRegressionModel(regparam=regparam)
