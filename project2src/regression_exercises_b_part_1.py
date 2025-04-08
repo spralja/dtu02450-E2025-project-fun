@@ -237,7 +237,7 @@ CV = model_selection.KFold(K, shuffle=True)
 
 N, M = X.shape
 
-K_inner = 3
+K_inner = 10
 # Empty for baseline
 Error_test_nofeatures = np.empty((K, 1))
 
