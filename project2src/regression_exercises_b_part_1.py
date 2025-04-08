@@ -253,7 +253,7 @@ max_iter = 10000
 Error_test_nn = np.empty((K, 1))
 h_list = np.empty((K, 1))
 
-
+best_error = 1e100  # initialize best loss to a large number
 for k, (train_index, test_index) in enumerate(CV.split(X, y)):
     
     X_train = X[train_index]
@@ -271,7 +271,7 @@ for k, (train_index, test_index) in enumerate(CV.split(X, y)):
 
     # Error for baseline model (mean of training data)
     Error_test_nofeatures[k] = (
-        np.square(y_test - y_test.mean()).sum(axis=0) / y_test.shape[0]
+        np.square(y_test - y_train.mean()).sum(axis=0) / y_test.shape[0]
     )
     # print(f'Error_test_nofeatures: {Error_test_nofeatures[k]}')
 
@@ -279,6 +279,10 @@ for k, (train_index, test_index) in enumerate(CV.split(X, y)):
     Error_test_rlr[k] = (
         np.square(y_test - X_test_rlr @ rlr_weights).sum(axis=0) / y_test.shape[0]
     )
+    if Error_test_rlr[k] < best_error:
+        best_error = Error_test_rlr[k]
+        best_weights = rlr_weights
+        best_lambda = rlr_lambda
     
     rlr_weight_list[k, :] = rlr_weights # store weights for current CV fold
     found_lambdas[k] = rlr_lambda # store lambda for current CV fold
@@ -379,3 +383,8 @@ print(f'Linear regression: {min_rlr_error:.8f}')
 print(f'Neural network: {min_nn_error:.8f}')
 print(f'Complexity for best nn: {h_list[np.argmin(Error_test_nn)]}')
 
+
+
+
+#%%
+print(best_weights)
