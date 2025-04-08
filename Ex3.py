@@ -1,139 +1,111 @@
-#%%
-# from Ex2 import *
-
-
-#%%
-# Setup
-
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy.linalg import svd
 import pandas as pd
+import numpy as np
+from sklearn.model_selection import KFold
+from sklearn.preprocessing import StandardScaler
+from sklearn.neural_network import MLPClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+from statsmodels.stats.contingency_tables import mcnemar
+from collections import Counter
+import warnings
 
-# Importing the data
+# Suppress warnings
+warnings.filterwarnings('ignore', category=UserWarning)
+
+# Load dataset
 filename = 'data/glass+identification/glass.csv'
-
 data = pd.read_csv(filename)
 
-attributeNames = np.asarray(data.columns)[1:]
-print(attributeNames)
-
+# Extract attributes and target
+attributeNames = np.asarray(data.columns)
 rawvalues = data.values
-X = rawvalues[:, 1:-1]
-y = rawvalues[:, -1]
+X = rawvalues[:, 1:-1]  # Exclude ID and Type
+y = rawvalues[:, -1]    # Target (Type)
 
-N, M = X.shape
+# Standardize features
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
 
-print(rawvalues.shape)
-print(X.shape)
+# Two-level CV setup
+outer_cv = KFold(n_splits=10, shuffle=True, random_state=42)
+inner_cv = KFold(n_splits=5, shuffle=True, random_state=42)
+lambda_values = [0.001, 0.01, 0.1, 1, 10]
+h_values = [1, 3, 5, 10]
+results = []
 
+# Perform two-level cross-validation
+for i, (train_idx, test_idx) in enumerate(outer_cv.split(X_scaled)):
+    print(f"Processing outer fold {i+1}/10")
+    X_par, X_test = X_scaled[train_idx], X_scaled[test_idx]
+    y_par, y_test = y[train_idx], y[test_idx]
 
-median = np.nanmedian(X, axis=0)
-std = np.nanstd(X, axis=0)
+    # Inner CV for ANN
+    best_h, best_ann_err = None, float('inf')
+    for h in h_values:
+        ann = MLPClassifier(hidden_layer_sizes=(h,), activation='relu', 
+                            max_iter=5000, learning_rate_init=0.01, random_state=42)
+        ann_err = 0
+        for inner_train_idx, val_idx in inner_cv.split(X_par):
+            ann.fit(X_par[inner_train_idx], y_par[inner_train_idx])
+            pred = ann.predict(X_par[val_idx])
+            ann_err += np.mean(pred != y_par[val_idx])
+        ann_err /= 5
+        if ann_err < best_ann_err:
+            best_h, best_ann_err = h, ann_err
 
-X_no_nan = rawvalues[:,1:-1][~np.isnan(rawvalues).any(axis=1)]
-y_no_nan = rawvalues[:,-1][~np.isnan(rawvalues).any(axis=1)]
+    # Inner CV for Logistic Regression
+    best_lambda, best_log_err = None, float('inf')
+    for lam in lambda_values:
+        log_reg = LogisticRegression(C=1/lam, max_iter=1000, random_state=42)
+        log_err = 0
+        for inner_train_idx, val_idx in inner_cv.split(X_par):
+            log_reg.fit(X_par[inner_train_idx], y_par[inner_train_idx])
+            pred = log_reg.predict(X_par[val_idx])
+            log_err += np.mean(pred != y_par[val_idx])
+        log_err /= 5
+        if log_err < best_log_err:
+            best_lambda, best_log_err = lam, log_err
 
-N, M = X_no_nan.shape
-print(f'X shape: {X_no_nan.shape}')
+    # Train and test on outer fold
+    ann = MLPClassifier(hidden_layer_sizes=(best_h,), activation='relu', 
+                        max_iter=5000, learning_rate_init=0.01, random_state=42)
+    log_reg = LogisticRegression(C=1/best_lambda, max_iter=1000, random_state=42)
+    ann.fit(X_par, y_par)
+    log_reg.fit(X_par, y_par)
+    baseline_pred = np.full_like(y_test, Counter(y_par).most_common(1)[0][0])
 
-C = 7
-classNames = ['building_windows_float_processed', 'building_windows_non_float_processed', 'vehicle_windows_float_processed', 'vehicle_windows_non_float_processed', 'containers', 'tableware', 'headlamps']
+    ann_pred = ann.predict(X_test)
+    log_pred = log_reg.predict(X_test)
 
+    ann_err = np.mean(ann_pred != y_test)
+    log_err = np.mean(log_pred != y_test)
+    base_err = np.mean(baseline_pred != y_test)
 
-#%%
-print(f'X shape: {X_no_nan.shape}')
-print((np.ones(N) * X_no_nan.mean(axis=0).shape))
-#%%
+    results.append([i + 1, best_h, ann_err, best_lambda, log_err, base_err])
 
-# PCA
+# Create Table 2
+columns = ['Outer Fold', 'ANN h*', 'ANN E_test', 'LogReg λ*', 'LogReg E_test', 'Baseline E_test']
+table = pd.DataFrame(results, columns=columns)
+print("\nTable 2: Two-Level Cross-Validation Results")
+print(table.to_string(index=False))
 
-# Subtract the mean from the data
-Y = X_no_nan - np.ones([N, 1]) * X_no_nan.mean(axis=0)
+# Summary statistics
+print("\nSummary Statistics:")
+print(f"Average ANN Error: {np.mean(table['ANN E_test']):.4f}")
+print(f"Average Logistic Regression Error: {np.mean(table['LogReg E_test']):.4f}")
+print(f"Average Baseline Error: {np.mean(table['Baseline E_test']):.4f}")
 
-# Divide by standard deviation
-Y = Y / (np.ones([N, 1]) * np.std(Y, axis=0))
+# McNemar’s Test for ANN vs Logistic Regression
+contingency_table = np.array([[0, 0], [0, 0]])
+for i in range(len(y_test)):
+    if ann_pred[i] == y_test[i] and log_pred[i] != y_test[i]:
+        contingency_table[0, 1] += 1  # ANN correct, LogReg incorrect
+    elif ann_pred[i] != y_test[i] and log_pred[i] == y_test[i]:
+        contingency_table[1, 0] += 1  # ANN incorrect, LogReg correct
 
-# Multiplying the RI by 1000
-# Y[:,0] = Y[:,0] * 100
+mcnemar_result = mcnemar(contingency_table, exact=True)
+print("\nStatistical Evaluation (McNemar’s Test):")
+print(f"Test Statistic: {mcnemar_result.statistic}")
+print(f"P-Value: {mcnemar_result.pvalue}")
 
-
-
-# PCA by computing SVD of Y
-U, S, Vh = svd(Y, full_matrices=False)
-V = Vh.T
-
-rho = (S*S) / (S*S).sum()
-
-threshold = 0.9
-
-
-#%%
-# Plot variance explained
-plt.figure()
-plt.plot(range(1, len(rho) + 1), rho, "x-")
-plt.plot(range(1, len(rho) + 1), np.cumsum(rho), "o-")
-plt.plot([1, len(rho)], [threshold, threshold], "k--")
-plt.title("Variance explained by principal components")
-plt.xlabel("Principal component")
-plt.ylabel("Variance explained")
-plt.legend(["Individual", "Cumulative", "Threshold"])
-plt.grid()
-plt.show()
-
-
-
-#%%
-# Project the centered data onto principal component space
-Z = Y @ V
-
-
-print(f'Z shape: {Z.shape}')
-print(f'V shape: {V.shape}')
-print(f'Y shape: {Y.shape}')
-print(f'y shape: {y_no_nan.shape}')
-#%%
-
-
-# Indices of the principal components to be plotted
-i = 0
-j = 1
-
-
-# Plot PCA of the data
-f = plt.figure()
-plt.title("PCA", fontsize=18)
-# Z = array(Z)
-for c in range(C):
-    # select indices belonging to class c:
-    class_mask = y_no_nan == c
-    plt.plot(Z[class_mask, i], Z[class_mask, j], "o", alpha=0.5)
-plt.legend(classNames)
-plt.xlabel("PC{0}".format(i + 1), fontsize=14)
-plt.ylabel("PC{0}".format(j + 1), fontsize=14)
-
-# Output result to screen
-plt.show()
-
-
-#%%
-pcs = [0, 1, 2]
-legendStrs = ["PC" + str(e + 1) for e in pcs]
-bw = 0.2 #Bar width
-print(M)
-r = np.arange(1, M + 1)
-
-for i in pcs:
-    plt.bar(r + i * bw, V[:, i], width=bw)
-
-plt.xticks(r + bw, attributeNames[:-1],rotation=45)
-plt.xlabel("Attributes")
-plt.ylabel("Component coefficients")
-plt.legend(legendStrs)
-plt.grid()
-plt.title("PCA Component Coefficients")
-plt.show()
-
-
-#%%
-print(attributeNames)
+print("\nScript completed successfully!")
