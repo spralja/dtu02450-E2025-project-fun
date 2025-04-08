@@ -75,3 +75,93 @@ print("\nClassification result:")
 print(classNames[int(x_class)-1])
 print("\nTrue label:")
 print(classNames[int(test_label)-1])
+
+
+#%%
+
+class Classification_Model:
+    def __init__(self,X,y,classNames,min_samples_split=5.0,standardize=False):
+        self.X = X
+        self.y = y
+        self.N, self.M = X.shape
+        self.classNames = classNames
+        self.C = len(classNames)
+        self.standardized = False
+        if standardize:
+            self.standardize_data()
+        self.fit_classification_tree(min_samples_split=min_samples_split)
+
+    def standardize_data(self):
+        self.mean = np.mean(self.X, 0)
+        self.std = np.std(self.X, 0)
+        self.X_hat = (self.X - np.ones((self.N, self.M)) * self.mean) / (np.ones((self.N, self.M)) * self.std)
+        self.standardized = True
+
+    def fit_classification_tree(self, criterion='gini', min_samples_split=5.0):
+        try:
+            if self.standardized:
+                self.dtc = tree.DecisionTreeClassifier(criterion=criterion, min_samples_split=min_samples_split)
+                self.dtc = self.dtc.fit(self.X_hat, self.y)
+            else:
+                self.dtc = tree.DecisionTreeClassifier(criterion=criterion, min_samples_split=min_samples_split)
+                self.dtc = self.dtc.fit(self.X, self.y)
+        except:
+            print("Error in fitting the classification tree")
+
+    def plot_tree(self):
+        fig = plt.figure(figsize=(4, 4), dpi=600)
+        _ = tree.plot_tree(self.dtc, filled=False, feature_names=attributeNames)
+        plt.show()
+
+    def predict(self, x):
+        if self.standardized:
+            x = (x - self.mean) / self.std
+        x_class = self.dtc.predict(x)[0]
+        return x_class
+
+
+#%%
+
+M1 = Classification_Model(X,y,classNames)
+M1.fit_classification_tree()
+M1.plot_tree()
+
+
+#%%
+
+def leaveOneOutTest(X,y,classNames,min_samples_split=20.0):
+    N, M = X.shape
+    correct = 0
+    for i in range(N):
+        X_train = np.delete(X, i, axis=0)
+        y_train = np.delete(y, i, axis=0)
+        X_test = X[i, :]
+        y_test = y[i]
+        M = Classification_Model(X_train, y_train, classNames,min_samples_split=min_samples_split)
+        # M.fit_classification_tree(min_samples_split=min_samples_split)
+        X_test = test_row.reshape(1, -1)
+        x_class = M.predict(X_test)
+        print(f'Is {x_class} == {y_test}? {x_class == y_test}')
+        if x_class == y_test:
+            correct += 1
+    return correct/N
+
+
+#%%
+
+# for min_samples_split in [2.0, 5.0, 10.0, 20.0, 50.0, 100.0]:
+for min_samples_split in [100, 50, 20, 10, 5, 2]:
+    M_temp = Classification_Model(X,y,classNames,min_samples_split=min_samples_split)
+    # M_temp.fit_classification_tree(min_samples_split=min_samples_split)
+    M_temp.plot_tree()
+    accuracy = leaveOneOutTest(X,y,classNames,min_samples_split=min_samples_split)
+    print(f"Accuracy for min_samples_split = {min_samples_split}: {accuracy}")
+
+#%%
+def baseline_accuracy(y):
+    unique, counts = np.unique(y, return_counts=True)
+    print(unique, counts)
+    return max(counts)/sum(counts)
+
+baseline = baseline_accuracy(y)
+print(f"Baseline accuracy: {baseline}")
