@@ -122,7 +122,7 @@ all_base_pred = np.array(all_base_pred)
 all_y_true = np.array(all_y_true)
 
 # Perform pairwise comparisons
-print("\nStatistical Evaluation (McNemar’s Test):")
+print("\nStatistical Evaluation (McNemar's Test):")
 
 # 1. ANN vs Logistic Regression
 table_ann_log = create_contingency_table(all_ann_pred, all_log_pred, all_y_true)
@@ -148,19 +148,21 @@ print(f"Contingency Table:\n{table_log_base}")
 print(f"Test Statistic: {mcnemar_log_base.statistic}")
 print(f"P-Value: {mcnemar_log_base.pvalue}")
 
-print("\nScript completed successfully!")
-
-table = pd.DataFrame(
+# Create final table with proper formatting
+final_table = pd.DataFrame(
     {
-        'Outer fold': np.arange(1, K + 1),
-        'ANN n': h_list.flatten(),
-        'ANN E': np.round(Error_test_nn,10).flatten(),
-        'Linear regression lambda': found_lambdas.flatten(),
-        'Linear regression E': np.round(Error_test_rlr,10).flatten(),
-        'Baseline E': np.round(Error_test_nofeatures,10).flatten()
+        'Outer fold': np.arange(1, 11),  # Since you have 10 outer folds
+        'ANN n': [row[1] for row in results],  # ANN h* values
+        'ANN E': [row[2] for row in results],  # ANN E_test values
+        'Linear regression lambda': [row[3] for row in results],  # LogReg λ* values
+        'Linear regression E': [row[4] for row in results],  # LogReg E_test values
+        'Baseline E': [row[5] for row in results]  # Baseline E_test values
     }
 )
 
-print(table)
+print("\nFinal Formatted Table:")
+print(final_table)
 
-table.to_csv('regression_table.csv', index=False)
+final_table.to_csv('classification_table.csv', index=False)
+
+print("\nScript completed successfully!")
